@@ -3,6 +3,12 @@
 A real-time strategy game where the city builds itself and you decide what each square becomes.
 This build covers milestones M0 to M6 of the implementation plan (simulation core, natural growth, terrain, economy, combat, many colonies, research), plus an AI that builds, researches, defends and attacks for the rival colonies.
 
+## Play it
+
+In your browser, nothing to install: **https://bestandgreatestusername.github.io/dot-city/**
+
+The game is rebuilt and redeployed automatically on every push to `main`.
+
 ## Run it
 
 ```bash
