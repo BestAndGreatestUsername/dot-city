@@ -9,6 +9,7 @@ import './ui/style.css';
 import tuningJson from './data/tuning.json';
 import { COLONY } from './render/palette';
 import { Renderer } from './render/renderer';
+import { SoundSystem, type Listener } from './audio/audio';
 import { doctrineOf } from './sim/ai';
 import { MAP_NAMES, MAP_TYPES, type MapType } from './sim/mapgen';
 import {
@@ -211,6 +212,93 @@ function randomSeedName(): string {
   return `${pick(ADJECTIVES)}-${pick(NOUNS)}-${Math.floor(Math.random() * 90 + 10)}`;
 }
 
+// ---------- sound ----------
+
+const sound = new SoundSystem();
+// Browsers allow sound only after the player clicks or presses a key.
+const unlockSound = () => sound.unlock();
+window.addEventListener('pointerdown', unlockSound);
+window.addEventListener('keydown', unlockSound);
+
+/** Where the player is listening from: the middle of the view. */
+function listener(): Listener {
+  const [x0, y0, x1, y1] = renderer.viewRect();
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, reach: (x1 - x0) / 2, wrapW: state.wrap ? state.width : 0, wrapH: state.wrap ? state.height : 0 };
+}
+
+/** The noises of the world: each event at its own place, quieter the further it is from the view. */
+function playEvents(): void {
+  const ear = listener();
+  const w = state.width;
+  const cellSpot = (c: number) => ({ x: (c % w) + 0.5, y: ((c / w) | 0) + 0.5 });
+  for (const e of events) {
+    switch (e.type) {
+      case 'grow':
+        if (e.owner === PLAYER) sound.play(e.clearedForest ? 'timber' : 'grow', 1, cellSpot(e.cell), ear);
+        break;
+      case 'convert':
+        if (e.owner === PLAYER) sound.play('build', 1, cellSpot(e.cell), ear);
+        break;
+      case 'destroy':
+        sound.play('collapse', 1, cellSpot(e.cell), ear);
+        break;
+      case 'hit':
+        sound.play('hit', 1, cellSpot(e.cell), ear);
+        break;
+      case 'shot': {
+        const name = { bolt: 'bolt', arrow: 'arrow', ballista: 'ballista', spear: 'spear', lightning: 'zap', cannon: 'thud', rock: 'whoosh', missile: 'missile' }[e.style ?? 'bolt'];
+        sound.play(name, 1, { x: e.x0, y: e.y0 }, ear);
+        break;
+      }
+      case 'blast': {
+        const name = { fire: 'fire', frost: 'frost', heal: 'heal', cannon: 'boom' }[e.style];
+        sound.play(name, 1, { x: e.x, y: e.y }, ear);
+        break;
+      }
+      case 'unitDied':
+        sound.play('death', 1, { x: e.x, y: e.y }, ear);
+        break;
+      case 'strike':
+        sound.play(e.heavy ? 'thud' : 'clang', 1, { x: e.x, y: e.y }, ear);
+        break;
+      case 'thorns':
+        sound.play('thorns', 1, { x: e.x, y: e.y }, ear);
+        break;
+      case 'loot':
+        sound.play('coin', e.owner === PLAYER ? 1 : 0.5, { x: e.x, y: e.y }, ear);
+        break;
+      case 'age':
+        sound.play('age');
+        break;
+      case 'landmark':
+        if (e.owner === PLAYER) sound.play(e.feature === 1 ? 'ruins' : 'treasure');
+        break;
+      case 'order':
+        // Your own war horn when you send the army out; an alarm when someone comes for you.
+        if (e.owner === PLAYER && e.target > 0) sound.play('horn');
+        else if (e.target === PLAYER) sound.play('warn');
+        break;
+      case 'defeat':
+        sound.play('fallen', e.owner === PLAYER ? 1 : 0.7);
+        break;
+    }
+  }
+}
+
+/** The soundtrack follows the age, turns tense while anyone is attacking the player, and quietens when paused. */
+function updateMusic(): void {
+  sound.music.setAge(state.age);
+  const threatened = state.colonies.some((c) => c.alive && c.order === PLAYER);
+  sound.music.setTension(threatened ? 1 : 0);
+  sound.music.setPaused(settings.paused);
+}
+
+const VOLUME_STEPS = [0, 0.25, 0.5, 0.75, 1];
+function syncSoundButtons(): void {
+  $('btn-music').textContent = `MUSIC: ${Math.round(sound.settings.music * 100)}%`;
+  $('btn-sfx').textContent = `SOUND: ${Math.round(sound.settings.sfx * 100)}%`;
+}
+
 const settings = {
   seedName: randomSeedName(),
   model: 'local' as GrowthModel,
@@ -387,6 +475,7 @@ function clock(ticks: number): string {
 /** The end of a game: the verdict, how it went, and what to do next. */
 function showEnd(won: boolean): void {
   const colony = me();
+  sound.play(won ? 'victory' : 'defeat');
   const peak = Math.max(...samples[PLAYER - 1]);
   const stat = (value: string | number, label: string) => `<div><b>${value}</b><span>${label}</span></div>`;
   banner.innerHTML =
@@ -432,6 +521,7 @@ function noteEvents(): void {
         if (now - lastTowerAlarm > 12000) {
           lastTowerAlarm = now;
           showToast('YOUR TOWER IS UNDER ATTACK!', true, towerSpot(PLAYER));
+          sound.play('warn');
         }
       }
       continue;
@@ -843,6 +933,7 @@ function refreshHud(): void {
   });
 
   setText('clock', clock(state.tick));
+  updateMusic();
   setText('age-name', tuning.ages[state.age - 1].name.toUpperCase());
   // A clear PAUSED badge, unless a card on screen already explains the pause.
   const card = ['intro', 'research', 'menu', 'banner'].some((id) => !$(id).classList.contains('hidden'));
@@ -1035,6 +1126,7 @@ function checkDiscovery(): boolean {
   const colony = me();
   if (!colony.alive || !colony.offer || colony.drawsEarned <= announcedDraws) return false;
   announcedDraws = colony.drawsEarned;
+  sound.play('discovery');
   if (!settings.paused) {
     researchPause = true;
     settings.paused = true;
@@ -1175,6 +1267,7 @@ function setTab(tab: Category): void {
 }
 
 function setTool(kind: number): void {
+  if (kind !== 0 && kind !== settings.tool) sound.play('pick');
   settings.tool = kind;
   syncControls();
 }
@@ -1323,6 +1416,18 @@ levelButton.addEventListener('click', () => {
   settings.level = (settings.level + 1) % LEVELS.length;
   restart(false);
 });
+$('btn-music').addEventListener('click', () => {
+  const next = VOLUME_STEPS[(VOLUME_STEPS.indexOf(sound.settings.music) + 1) % VOLUME_STEPS.length];
+  sound.setVolumes(next, sound.settings.sfx);
+  syncSoundButtons();
+});
+$('btn-sfx').addEventListener('click', () => {
+  const next = VOLUME_STEPS[(VOLUME_STEPS.indexOf(sound.settings.sfx) + 1) % VOLUME_STEPS.length];
+  sound.setVolumes(sound.settings.music, next);
+  syncSoundButtons();
+  sound.play('coin');
+});
+syncSoundButtons();
 $('btn-menu').addEventListener('click', () => setMenuOpen(menu.classList.contains('hidden')));
 $('btn-close-menu').addEventListener('click', () => setMenuOpen(false));
 $('btn-help').addEventListener('click', () => {
@@ -1353,6 +1458,10 @@ document.querySelectorAll<HTMLButtonElement>('.btn.speed').forEach((b) =>
 );
 // Buttons should not keep keyboard focus, or Space would press them again.
 document.querySelectorAll<HTMLButtonElement>('.btn').forEach((b) => b.addEventListener('click', () => b.blur()));
+// Every button clicks.
+document.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('.btn')) sound.play('click');
+});
 
 // ---------- main loop ----------
 
@@ -1394,6 +1503,7 @@ function frame(now: number): void {
   }
 
   if (events.length > 0) {
+    playEvents();
     noteEvents();
     renderer.apply(events, now);
     events.length = 0;
@@ -1419,6 +1529,8 @@ newGame();
 // Debug handle for automated checks.
 (window as unknown as Record<string, unknown>).dotCity = {
   getState: () => state,
+  /** The sound system, for checks. */
+  sound,
   settings,
   renderer,
   advance: (ticks: number) => {

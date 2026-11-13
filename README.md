@@ -121,6 +121,18 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 - A colony under 40 squares grows up to 25% faster, to help it recover.
 - Destroy a rival's Center Tower and the whole colony falls. Whoever was attacking it **plunders half its gold**, shared between them.
 
+### Sound and music
+
+Everything you hear is synthesised in the browser (no audio files):
+
+- **Effects** for growth and building, every kind of shot (crossbow bolts, arrows, ballistas, spears, lightning, cannon booms, boulders, missiles), fire, frost and healing magic, melee clangs and heavy blows, deaths and collapsing buildings, loot, landmarks, discoveries, the start of each age, war horns, the tower alarm, victory and defeat. Effects come from where they happen: the further from your view, the quieter. Repeats are throttled so a big battle stays listenable.
+- **Music:** a chiptune piece for each age, with a tense battle layer while anyone is attacking you. It plays quieter while the game is paused.
+  - Medieval: a flute tune over a drone, with plucked strings and a frame drum.
+  - Gunpowder: a fife march with snare rolls.
+  - Industrial: a pulse lead over pumping bass, with rock drums.
+  - Modern: a synth lead with fast arpeggios and a four-on-the-floor beat.
+- **Volume:** MUSIC and SOUND in the menu (`M`), in steps of 25%, remembered between visits. Sound starts on your first click, as browsers require.
+
 ### The ages
 
 Time moves on: **Medieval** (the start, with its magic: Frost and Lightning Towers, the Obelisk, the Shrine, monks and giants), **Gunpowder** at 4 minutes, **Industrial** at 9 and **Modern** at 14. Research offers only what the current age (or an earlier one) knows. When an age begins, everyone gets a **breakthrough**: a free discovery chosen only from that age's buildings. In the Modern age everyone also learns Anti-Air, so nobody is helpless against bombers.
