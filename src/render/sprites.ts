@@ -343,7 +343,7 @@ export function buildSprites(): SpriteSet {
       gold: paint(COIN, { g: PAL.goldDark, G: PAL.gold }),
       science: paint(FLASK, { b: PAL.scienceDark, B: PAL.science, L: PAL.scienceLight }),
     },
-    ruins: paint(['........', '.S...S..', '.S.S.S..', '.S.SvS..', '.S.S.SS.', 'SSSSSSS.', 'sssssss.', '........'], { S: PAL.stoneLight, s: PAL.stoneMid, v: PAL.void }),
-    treasure: paint(['........', '...gg...', '.kkkkkk.', 'kgGGGGgk', 'kkkkkkkk', 'kgGkkGgk', 'kkkkkkkk', '........'], { k: PAL.trunk, g: PAL.goldDark, G: PAL.gold }),
+    ruins: paint(['S.....S.', 'S..S..S.', 'S..S.vS.', 'S.vSvvS.', 'SvvSvvS.', 'SSSSSSSS', 'ssssssss', '........'], { S: PAL.stoneLight, s: PAL.stoneMid, v: PAL.void }),
+    treasure: paint(['........', '..bbbb..', '.bbbbbb.', 'kGkkkkGk', 'kGkgGkGk', 'kGkkkkGk', 'kkkkkkkk', 'G.g..G.g'], { k: PAL.trunk, b: PAL.fur, g: PAL.goldDark, G: PAL.gold }),
   };
 }

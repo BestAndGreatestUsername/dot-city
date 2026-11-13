@@ -736,6 +736,9 @@ function drawMinimap(): void {
       const team = TEAM_RGB[(owner - 1) % TEAM_RGB.length];
       const kind = state.kind[c];
       col = kind === Kind.Tower ? [255, 255, 255] : kind === Kind.House ? team.main : team.dark;
+    } else if (state.feature[c] !== 0) {
+      // Landmarks stand out on the minimap: violet ruins, gold treasure.
+      col = state.feature[c] === 1 ? [208, 130, 255] : [255, 215, 80];
     } else if (state.kind[c] === Kind.Rubble) {
       col = [70, 66, 62];
     } else {
@@ -1093,6 +1096,8 @@ function describe(cell: number): string {
       ? `<span><b>Interior house</b> — no empty neighbour, so it has no growth left to lose.</span>`
       : `<span><b>${who} interior house</b> — it cannot grow any more.</span>`;
   }
+  if (state.feature[cell] === 1) return '<span><b>Ancient Ruins</b> — grow your city onto this square for a <b>free discovery</b>. First city to reach it wins it.</span>';
+  if (state.feature[cell] === 2) return `<span><b>Treasure</b> — grow your city onto this square for <b>+${tuning.map.treasureGold} gold</b>. First city to reach it wins it.</span>`;
   if (kind === Kind.Rubble) return '<span><b>Rubble</b> — nothing can grow here until it clears. Units can cross it.</span>';
   const terrain = state.terrain[cell];
   if (terrain === Terrain.Water) return '<span><b>Water</b> — closed to growth, and units cannot cross it.</span>';

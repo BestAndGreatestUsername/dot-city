@@ -713,6 +713,7 @@ export class Renderer {
 
     this.drawVignette();
     this.drawAlarm(performance.now());
+    this.drawLandmarks(now, size, ox, oy);
     this.drawThreats(now, size, ox, oy);
     if (view.hover >= 0) this.drawCursor(now, view, cellX(view.hover), cellY(view.hover), size);
   }
@@ -775,6 +776,35 @@ export class Renderer {
       const label = String(n);
       const font = Math.max(10, 4 * u);
       this.text(label, Math.round(ax - Math.cos(angle) * 12 * u - (label.length * font) / 3), Math.round(ay - Math.sin(angle) * 12 * u), PAL.paper, font);
+    }
+  }
+
+  /** A sparkle and a bobbing marker over each landmark still waiting to be claimed. */
+  private drawLandmarks(now: number, size: number, ox: number, oy: number): void {
+    const s = this.state;
+    const g = this.ctx;
+    const z = this.zoom;
+    const w = s.width;
+    for (let c = 0; c < s.feature.length; c++) {
+      const f = s.feature[c];
+      if (f === 0) continue;
+      const x = (this.wx((c % w) + 0.5)) * size - ox;
+      const y = (this.wy(((c / w) | 0) + 0.5)) * size - oy;
+      if (x < -size || y < -size || x > this.canvas.width + size || y > this.canvas.height + size) continue;
+      const color = f === 1 ? PAL.void : PAL.gold;
+      const phase = (now / 600 + c * 0.37) % 1;
+      // A four-pointed twinkle that grows and fades above the landmark.
+      const k = Math.sin(phase * Math.PI);
+      const r = Math.max(1, Math.round(z * (1 + 1.5 * k)));
+      const px = Math.round(x + size * 0.3);
+      const py = Math.round(y - size * 0.55 - k * z * 2);
+      g.globalAlpha = 0.35 + 0.65 * k;
+      g.fillStyle = color;
+      g.fillRect(px - Math.floor(z / 2), py - r, Math.max(1, z), r * 2);
+      g.fillRect(px - r, py - Math.floor(z / 2), r * 2, Math.max(1, z));
+      g.fillStyle = PAL.paper;
+      g.fillRect(px - Math.floor(z / 2), py - Math.floor(z / 2), Math.max(1, z), Math.max(1, z));
+      g.globalAlpha = 1;
     }
   }
 
