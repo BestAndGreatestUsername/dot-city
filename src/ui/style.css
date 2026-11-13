@@ -1,0 +1,1150 @@
+/* Pixel-art interface: one font, hard edges, flat fills, no blur and no rounded corners. */
+
+:root {
+  --ink: #12131f;
+  --night: #0b0c16;
+  --panel: #23263f;
+  --panel-hi: #474d7e;
+  --panel-lo: #181a2d;
+  --btn: #3a4072;
+  --btn-hi: #5a63a6;
+  --btn-lo: #272c54;
+  --paper: #f4ecd8;
+  --dim: #a9adc9;
+  --gold: #ffcd4a;
+  --gold-lo: #c9952a;
+  /* Labels, buttons and numbers use Silkscreen; sentences use Pixelify Sans. */
+  --label: 'Silkscreen', 'Pixelify Sans', monospace;
+}
+
+h1,
+h2,
+.btn,
+kbd,
+.logo-text,
+.tag,
+#clock,
+.legend-row,
+.field,
+.field input {
+  font-family: var(--label) !important;
+  letter-spacing: 0 !important;
+}
+
+b {
+  font-weight: 600;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--night);
+  color: var(--paper);
+  font-family: 'Pixelify Sans', 'Courier New', monospace;
+  font-size: 16px;
+  line-height: 1.25;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  user-select: none;
+}
+
+#view {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+#view.panning {
+  cursor: grabbing;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  box-shadow:
+    inset 3px 3px 0 var(--panel-hi),
+    inset -3px -3px 0 var(--panel-lo),
+    6px 6px 0 rgba(0, 0, 0, 0.45);
+  padding: 12px 14px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+h1 {
+  font-size: 22px;
+  color: var(--gold);
+}
+
+h2 {
+  font-size: 12px;
+  color: var(--gold);
+  margin: 12px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 3px solid var(--panel-lo);
+}
+
+h2:first-child {
+  margin-top: 0;
+}
+
+/* ---------- logo ---------- */
+
+.logo {
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+}
+
+.logo-dot {
+  width: 16px;
+  height: 16px;
+  background: var(--gold);
+  box-shadow:
+    4px 4px 0 var(--gold-lo),
+    0 0 0 3px var(--ink);
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+
+.tag {
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--gold);
+  padding: 1px 6px;
+  letter-spacing: 1px;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--paper);
+  background: var(--btn);
+  border: 3px solid var(--ink);
+  box-shadow:
+    inset 0 3px 0 var(--btn-hi),
+    inset 0 -4px 0 var(--btn-lo);
+  padding: 5px 10px 7px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #464d88;
+}
+
+.btn:active {
+  box-shadow:
+    inset 0 4px 0 var(--btn-lo),
+    inset 0 -2px 0 var(--btn-hi);
+  padding: 7px 10px 5px;
+}
+
+.btn.on {
+  color: var(--ink);
+  background: var(--gold);
+  box-shadow:
+    inset 0 3px 0 #ffe9a3,
+    inset 0 -4px 0 var(--gold-lo);
+}
+
+.btn.wide {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+kbd {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--paper);
+  border-bottom: 3px solid var(--dim);
+  padding: 0 5px;
+  margin-right: 2px;
+}
+
+/* ---------- clock ---------- */
+
+.clock {
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+#clock {
+  font-size: 20px;
+  font-weight: 400;
+  min-width: 86px;
+  text-align: right;
+  letter-spacing: 2px;
+}
+
+/* ---------- side panels ---------- */
+
+.side {
+  top: 76px;
+  width: 232px;
+}
+
+.side.left {
+  left: 12px;
+}
+
+.side.right {
+  right: 12px;
+  top: 12px;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1px 0;
+}
+
+.stat b {
+  font-size: 18px;
+}
+
+.stat.sub {
+  padding-left: 12px;
+  color: var(--dim);
+}
+
+.stat.sub b {
+  font-size: 15px;
+}
+
+.stat.edge b {
+  color: var(--gold);
+}
+
+#chart {
+  display: block;
+  width: 198px;
+  height: auto;
+  image-rendering: pixelated;
+  border: 3px solid var(--ink);
+  background: var(--panel-lo);
+}
+
+#legend {
+  margin-top: 8px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.legend-row i {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink);
+}
+
+.legend-row b {
+  margin-left: 6px;
+  min-width: 30px;
+  text-align: right;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--dim);
+}
+
+.field input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--panel-lo);
+  border: 3px solid var(--ink);
+  padding: 4px 6px;
+  outline: none;
+  user-select: text;
+}
+
+.field input:focus {
+  border-color: var(--gold);
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.row .btn {
+  flex: 1;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.note.keys {
+  line-height: 1.75;
+}
+
+/* ---------- bottom bar ---------- */
+
+.bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+}
+
+.bottom .panel {
+  position: static;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+}
+
+.btn.tool {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.btn.tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.tool-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  background: #c8b283;
+  border: 2px solid var(--ink);
+}
+
+.tool-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tool-cost {
+  font-size: 11px;
+  color: var(--gold);
+}
+
+.btn.tool.on .tool-cost {
+  color: var(--ink);
+}
+
+/* Not enough gold for this building right now. */
+.btn.tool.poor .tool-icon {
+  opacity: 0.45;
+}
+
+.btn.tool.poor .tool-cost {
+  color: #ff6b6b;
+}
+
+.btn.tool.poor.on .tool-cost {
+  color: #8a1f1f;
+}
+
+.tip {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  max-width: min(620px, calc(100vw - 540px));
+  min-width: 280px;
+  font-size: 15px;
+  padding: 8px 14px;
+}
+
+/* ---------- army orders, messages ---------- */
+
+.btn.order {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn.order i {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink);
+  flex: none;
+}
+
+#orders .note {
+  margin: 0 0 6px;
+}
+
+#orders .order-label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+/* Rivals to attack, two to a row so seven of them still fit. */
+.order-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.order-grid .btn.order {
+  font-size: 11px;
+  padding: 3px 6px 5px;
+  gap: 6px;
+}
+
+.toast {
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  font-family: var(--label);
+  font-size: 14px;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+#banner {
+  text-align: center;
+}
+
+/* An attack on the player: louder than an ordinary message. */
+.toast.alarm {
+  color: var(--paper);
+  background: #8a1f2a;
+  box-shadow:
+    inset 3px 3px 0 #c2444f,
+    inset -3px -3px 0 #5a1f2a,
+    6px 6px 0 rgba(0, 0, 0, 0.45);
+}
+
+.btn.spaced {
+  margin-top: 6px;
+}
+
+.legend-tech {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--science, #3fd0c9);
+}
+
+.legend-row em {
+  font-style: normal;
+  font-size: 10px;
+  color: #ff8b8b;
+}
+
+/* ---------- hotbar ---------- */
+
+.tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(980px, calc(100vw - 24px));
+}
+
+#tool-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.btn.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 6px;
+  font-size: 12px;
+}
+
+.tab-count {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+#tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+
+#tools .btn.tool {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 80px;
+  padding: 5px 2px 6px;
+  text-align: center;
+}
+
+#tools .tool-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.tool-name {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.btn.tool.locked {
+  opacity: 0.45;
+  cursor: help;
+}
+
+.btn.tool.locked .tool-icon {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.btn.tool.locked .tool-cost {
+  color: var(--dim);
+}
+
+/* Just unlocked by research: pulse until the player has had a good look. */
+.btn.fresh {
+  animation: fresh 0.8s steps(2) infinite;
+}
+
+@keyframes fresh {
+  0% {
+    box-shadow:
+      inset 0 3px 0 var(--btn-hi),
+      inset 0 -4px 0 var(--btn-lo),
+      0 0 0 3px var(--gold);
+  }
+  100% {
+    box-shadow:
+      inset 0 3px 0 var(--btn-hi),
+      inset 0 -4px 0 var(--btn-lo),
+      0 0 0 3px var(--ink);
+  }
+}
+
+/* ---------- research ---------- */
+
+.panel.intro.research {
+  width: 640px;
+  max-width: calc(100vw - 24px);
+}
+
+#research-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px 12px;
+  min-height: 112px;
+}
+
+.card-tag {
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.card-name {
+  font-size: 14px;
+  color: var(--gold);
+}
+
+.card-text {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+/* A rare discovery carries a downside: mark it. */
+.btn.card.rare {
+  border-color: #b04a8a;
+}
+
+.btn.card.rare .card-tag {
+  color: #ff9ad5;
+}
+
+.btn.card.unlock {
+  position: relative;
+  border-color: var(--gold);
+  padding-right: 58px;
+}
+
+.card-icon {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  background: #c8b283;
+  border: 2px solid var(--ink);
+}
+
+.btn.card.reward .card-name {
+  color: var(--paper);
+}
+
+.btn.poor {
+  color: #ff8b8b;
+}
+
+#btn-research {
+  margin: 6px 0 0;
+  text-align: center;
+}
+
+/* ---------- resources ---------- */
+
+.res {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.res canvas {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+
+.res b {
+  font-family: var(--label);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.res span {
+  margin-left: auto;
+  font-family: var(--label);
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.res.deny b {
+  color: #ff6b6b;
+}
+
+.res.deny {
+  background: #5a1f2a;
+  outline: 3px solid #5a1f2a;
+}
+
+/* On small windows, drop the reference text so the map stays visible. */
+@media (max-width: 1100px), (max-height: 720px) {
+  .optional {
+    display: none;
+  }
+  .side {
+    width: 204px;
+  }
+  #chart {
+    width: 170px;
+  }
+  .stat b {
+    font-size: 15px;
+  }
+  .tip {
+    max-width: min(620px, calc(100vw - 470px));
+    min-width: 240px;
+    font-size: 14px;
+  }
+}
+
+.tip b {
+  color: var(--gold);
+}
+
+/* ---------- intro card ---------- */
+
+.intro {
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 440px;
+  padding: 20px 22px;
+}
+
+.intro p {
+  margin: 10px 0 0;
+}
+
+.intro .btn {
+  margin-top: 16px;
+  font-size: 18px;
+  padding: 6px 22px 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- the age, in the clock bar ---------- */
+
+.age {
+  font-family: var(--label);
+  font-size: 11px;
+  color: var(--ink);
+  background: #c9a2ff;
+  border: 2px solid var(--ink);
+  padding: 1px 6px 2px;
+}
+
+/* ---------- paused ---------- */
+
+.paused-badge {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--label);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--gold);
+  border: 3px solid var(--ink);
+  padding: 3px 10px 4px;
+  animation: blink 1.2s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---------- intro steps ---------- */
+
+.steps {
+  margin: 12px 0 0;
+  padding-left: 22px;
+}
+
+.steps li {
+  margin: 6px 0;
+}
+
+.steps li::marker {
+  font-family: var(--label);
+  color: var(--gold);
+}
+
+.intro .note {
+  margin-top: 12px;
+}
+
+/* ---------- messages you can click, and the end screen ---------- */
+
+.toast.clickable {
+  cursor: pointer;
+}
+
+.toast.clickable:hover {
+  filter: brightness(1.15);
+}
+
+#banner {
+  width: 480px;
+  max-width: calc(100vw - 24px);
+}
+
+.end-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 16px 0 4px;
+}
+
+.end-stats div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: var(--panel-lo);
+  border: 3px solid var(--ink);
+}
+
+.end-stats b {
+  font-family: var(--label);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--gold);
+}
+
+.end-stats span {
+  font-family: var(--label);
+  font-size: 9px;
+  color: var(--dim);
+}
+
+#banner .row {
+  justify-content: center;
+}
+
+#banner .btn {
+  flex: none;
+  font-size: 13px;
+  padding: 6px 12px 8px;
+}
+
+/* ---------- top-left status panel ---------- */
+
+.side.left {
+  top: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 3px solid var(--panel-lo);
+}
+
+.brand .logo-text {
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.brand .logo-dot {
+  width: 12px;
+  height: 12px;
+  box-shadow:
+    3px 3px 0 var(--gold-lo),
+    0 0 0 3px var(--ink);
+}
+
+.tower-row {
+  margin-top: 8px;
+}
+
+/* Where the gold comes from, under the gold figure. */
+.gold-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: -2px 0 4px 32px;
+  font-family: var(--label);
+  font-size: 9px;
+  color: var(--dim);
+}
+
+.gold-split b {
+  font-weight: 400;
+  color: var(--gold);
+}
+
+.res-label {
+  font-family: var(--label);
+  font-size: 12px;
+  color: var(--dim);
+  width: 52px;
+}
+
+.tower-row .meter {
+  flex: 1;
+  margin: 0;
+}
+
+.meter.hp i {
+  background: #7be36a;
+  box-shadow: inset 0 -3px 0 #3f9a3a;
+}
+
+.meter.hp i.warn {
+  background: var(--gold);
+  box-shadow: inset 0 -3px 0 var(--gold-lo);
+}
+
+.meter.hp i.danger {
+  background: #ff6b6b;
+  box-shadow: inset 0 -3px 0 #a83a3a;
+  animation: danger 0.6s steps(2) infinite;
+}
+
+@keyframes danger {
+  50% {
+    background: #ffd0d0;
+  }
+}
+
+/* ---------- science meter ---------- */
+
+.meter {
+  height: 10px;
+  margin: 4px 0 2px;
+  background: var(--panel-lo);
+  border: 3px solid var(--ink);
+  box-sizing: content-box;
+}
+
+.meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #3fd0c9;
+  box-shadow: inset 0 -3px 0 #23938e;
+}
+
+/* ---------- minimap ---------- */
+
+#minimap {
+  display: block;
+  width: 198px;
+  height: 198px;
+  image-rendering: pixelated;
+  border: 3px solid var(--ink);
+  background: var(--panel-lo);
+  cursor: pointer;
+}
+
+.side.right {
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+h2 .h2-note {
+  float: right;
+  color: var(--paper);
+  font-size: 12px;
+}
+
+/* ---------- army chips ---------- */
+
+#army-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+#army-list .note {
+  margin: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px 1px 3px;
+  font-family: var(--label);
+  font-size: 12px;
+  background: var(--panel-lo);
+  border: 2px solid var(--ink);
+}
+
+.chip img {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+}
+
+/* ---------- colony list ---------- */
+
+.legend-row {
+  padding: 3px 4px;
+  margin: 0 -4px;
+  cursor: pointer;
+}
+
+.legend-row:hover {
+  background: var(--panel-lo);
+}
+
+.legend-main {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.legend-name {
+  font-size: 12px;
+}
+
+.legend-sub {
+  font-size: 9px;
+  color: var(--dim);
+}
+
+.legend-row.you .legend-name {
+  color: var(--gold);
+}
+
+.legend-row em {
+  margin-left: auto;
+}
+
+.legend-row.threat {
+  background: #5a1f2a;
+}
+
+.legend-row.fallen {
+  opacity: 0.4;
+}
+
+/* ---------- menu ---------- */
+
+.panel.intro.menu {
+  width: 470px;
+  max-width: calc(100vw - 24px);
+}
+
+.menu h2 {
+  margin-top: 14px;
+}
+
+.menu .note {
+  margin: 6px 0 0;
+}
+
+.intro.menu .btn {
+  margin-top: 0;
+  font-size: 13px;
+  padding: 5px 10px 7px;
+}
+
+.menu .row:last-child {
+  margin-top: 16px;
+}
+
+/* ---------- info card (hovering a building on the bar) ---------- */
+
+.tip.card {
+  display: block;
+  font-size: 14px;
+}
+
+.info-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--label);
+}
+
+.info-head b {
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.tag.economy {
+  background: var(--gold);
+}
+
+.tag.science {
+  background: #3fd0c9;
+}
+
+.tag.defence {
+  background: #9fb4ff;
+}
+
+.tag.army {
+  background: #ff8b8b;
+}
+
+.info-cost {
+  margin-left: auto;
+  font-family: var(--label);
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.info-cost.poor {
+  color: #ff6b6b;
+}
+
+.info-text {
+  margin: 4px 0 6px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chips span {
+  font-family: var(--label);
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--panel-lo);
+  border: 2px solid var(--ink);
+}

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dot City</title>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+
+    <div id="hud">
+      <div class="panel clock">
+        <button id="btn-pause" class="btn" title="Pause or resume (Space)">PAUSE</button>
+        <button class="btn speed" data-speed="1" title="Normal speed (1)">1x</button>
+        <button class="btn speed" data-speed="2" title="Double speed (2)">2x</button>
+        <button class="btn speed" data-speed="3" title="Triple speed (3)">3x</button>
+        <span id="age-name" class="age" title="The age: new discoveries open as the ages pass">MEDIEVAL</span>
+        <span id="clock">00:00</span>
+        <button id="btn-menu" class="btn" title="Map, rivals, difficulty and controls (Esc)">MENU</button>
+      </div>
+
+      <div class="panel toast hidden" id="toast"></div>
+      <div class="paused-badge hidden" id="paused-badge">PAUSED &middot; <kbd>SPACE</kbd> TO PLAY</div>
+
+      <div class="panel side left">
+        <div class="brand"><span class="logo-dot"></span><span class="logo-text">DOT CITY</span></div>
+        <div class="res" id="row-gold" title="Gold: earned by houses, farms and money buildings; spent on buildings">
+          <canvas id="icon-gold" width="8" height="8"></canvas>
+          <b id="res-gold">0</b>
+          <span id="res-gold-rate">+0/s</span>
+        </div>
+        <div class="gold-split" id="gold-split" title="Where your gold comes from, per second"></div>
+        <div class="res" title="Science: made by research buildings. Fill the bar for a discovery.">
+          <canvas id="icon-science" width="8" height="8"></canvas>
+          <b id="res-science">0</b>
+          <span id="res-science-rate">+0/s</span>
+        </div>
+        <div class="meter" title="Progress to your next discovery"><i id="sci-bar"></i></div>
+        <button id="btn-research" class="btn wide on hidden" title="Choose a discovery (T)">DISCOVERY READY</button>
+        <div class="res tower-row" title="Your Center Tower. If it falls, you lose.">
+          <span class="res-label">TOWER</span>
+          <div class="meter hp"><i id="tower-bar"></i></div>
+        </div>
+      </div>
+
+      <div class="panel side right">
+        <h2>MAP</h2>
+        <canvas id="minimap" width="96" height="96" title="Click or drag to move the view"></canvas>
+        <h2>ARMY <span class="h2-note" id="st-army">0/0</span></h2>
+        <div id="army-list"></div>
+        <div id="orders"></div>
+        <h2>COLONIES</h2>
+        <div id="legend"></div>
+      </div>
+
+      <div class="panel intro menu hidden" id="menu">
+        <h1>MENU</h1>
+        <h2>THIS GAME</h2>
+        <label class="field">SEED <input id="seed" maxlength="18" spellcheck="false" autocomplete="off" /></label>
+        <div class="row">
+          <button id="btn-restart" class="btn" title="Replay this exact map (R)">RESTART</button>
+          <button id="btn-random" class="btn" title="Roll a new map">NEW MAP</button>
+        </div>
+        <div class="row">
+          <button id="btn-maptype" class="btn" title="Which kind of map. Changing it starts a new game.">MAP: ANY</button>
+        </div>
+        <p class="note" id="map-note"></p>
+        <h2>RIVALS</h2>
+        <div class="row">
+          <button id="btn-rivals" class="btn">RIVALS: ON</button>
+          <button id="btn-level" class="btn" title="Rival difficulty. Hard and Brutal rivals earn more and attack sooner. Changing it restarts the game.">LEVEL: HARD</button>
+        </div>
+        <div class="row">
+          <button id="btn-attacks" class="btn" title="Whether rival colonies may attack">AI ATTACKS: ON</button>
+          <button id="btn-edge" class="btn" title="Highlight squares that can still grow (E)">EDGE VIEW: OFF</button>
+        </div>
+        <p class="note" id="level-note"></p>
+        <h2>CONTROLS</h2>
+        <p class="note keys">
+          <kbd>DRAG</kbd> move map &nbsp;<kbd>WHEEL</kbd> zoom &nbsp;<kbd>H</kbd> home<br />
+          <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd> building tabs &nbsp;<kbd>ESC</kbd> put a tool away<br />
+          <kbd>SPACE</kbd> pause &nbsp;<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> speed &nbsp;<kbd>T</kbd> research<br />
+          <kbd>E</kbd> edge view &nbsp;<kbd>R</kbd> restart &nbsp;<kbd>M</kbd> this menu
+        </p>
+        <div class="row">
+          <button id="btn-help" class="btn">HOW TO PLAY</button>
+          <button id="btn-close-menu" class="btn on">BACK TO THE GAME</button>
+        </div>
+      </div>
+
+      <div class="bottom">
+        <div class="panel tip hidden" id="tip"></div>
+        <div class="panel tools">
+          <div id="tool-tabs"></div>
+          <div id="tools"></div>
+        </div>
+      </div>
+
+      <div class="panel intro research hidden" id="research">
+        <h1>CHOOSE A TECHNOLOGY</h1>
+        <p class="note">The game is paused until you choose.</p>
+        <div id="research-cards"></div>
+        <p class="note" id="research-taken"></p>
+        <div class="row">
+          <button id="btn-reroll" class="btn">RE-ROLL</button>
+        </div>
+      </div>
+
+      <div class="panel intro hidden" id="banner"></div>
+
+      <div class="panel intro" id="intro">
+        <h1>YOUR CITY BUILDS ITSELF</h1>
+        <ol class="steps">
+          <li>Houses grow outward from your tower on their own and earn <b>gold</b>.</li>
+          <li>Pick a building on the bar below, then click or drag over your houses to <b>convert</b> them, for good.</li>
+          <li><b>Research buildings</b> bring discoveries: new towers, armies and money buildings. No tree: your picks shape how you play.</li>
+          <li>A <b>Warrior Camp</b> raises soldiers. Order them to <b>attack</b> a rival; destroy its tower and the colony falls.</li>
+        </ol>
+        <p class="note">Rivals can attack from about three minutes in: get <b>Crossbow Towers</b> and <b>Walls</b> up early. The map loops at its edges. <kbd>M</kbd> menu.</p>
+        <button id="btn-intro" class="btn on">START</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
