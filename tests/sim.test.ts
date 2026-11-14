@@ -7,7 +7,7 @@ import { nextInt } from '../src/sim/rng';
 import { applyCommand, step } from '../src/sim/sim';
 import { addColony, colonySize, createEmptyState, createGame, hashState, isSource, refreshAround } from '../src/sim/state';
 import { cellAt, cellDist, deltaX, dist, step as neighbour } from '../src/sim/topo';
-import { Kind, Terrain, type GameState, type GrowthModel, type SimEvent, type Tuning } from '../src/sim/types';
+import { Kind, Terrain, UnitType, type GameState, type GrowthModel, type SimEvent, type Tuning } from '../src/sim/types';
 
 const tuning = tuningJson as Tuning;
 
@@ -375,21 +375,39 @@ describe('game modes', () => {
     expect(events.some((e) => e.type === 'modeWin' && e.owner === 3)).toBe(true);
   });
 
-  it('King of the Hill: a crown in the contested middle; holding it long enough wins', () => {
-    const s = createGame({ seed: 4, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], mode: 'crown' });
-    expect(s.crown).toBeGreaterThanOrEqual(0);
-    // Far from every tower.
-    for (const c of s.colonies) expect(cellDist(s, s.crown, c.tower)).toBeGreaterThan(8);
-    s.owner[s.crown] = 2;
-    s.kind[s.crown] = Kind.House;
+  it('Apocalypse: waves of the dead rise outside every city, grow, and attack everyone', () => {
+    const s = createGame({ seed: 4, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], mode: 'apocalypse' });
     const events: SimEvent[] = [];
-    for (let i = 0; i < tuning.modes.crownSeconds * tuning.tickRate + 1 && s.winner === 0; i++) {
-      s.owner[s.crown] = 2;
-      s.kind[s.crown] = Kind.House;
-      step(s, tuning, events);
-    }
-    expect(events.some((e) => e.type === 'crown' && e.owner === 2)).toBe(true);
-    expect(s.winner).toBe(2);
+    // Let the cities grow a little, then wait for the first wave.
+    while (s.wave === 0) step(s, tuning, events);
+    expect(events.some((e) => e.type === 'wave' && e.wave === 1)).toBe(true);
+    const dead = s.units.filter((u) => u.owner === 0);
+    expect(dead.length).toBeGreaterThanOrEqual(4 * tuning.modes.waveBase - 4);
+    // They rose on open ground, outside every city.
+    for (const u of dead) expect(s.owner[cellAt(s, Math.floor(u.x), Math.floor(u.y))]).toBe(0);
+    // Each city gets its own share.
+    for (const c of s.colonies) expect(dead.some((u) => u.target === c.id)).toBe(true);
+    // A minute later they have reached the cities and are chewing on them.
+    const hits = run(s, 600).filter((e) => e.type === 'hit' || e.type === 'destroy');
+    expect(hits.length).toBeGreaterThan(0);
+    // The next wave is bigger.
+    const first = events.find((e) => e.type === 'wave' && e.wave === 1);
+    const later: SimEvent[] = [];
+    while (s.wave < 3) step(s, tuning, later);
+    const third = later.find((e) => e.type === 'wave' && e.wave === 3);
+    if (first?.type === 'wave' && third?.type === 'wave') expect(third.count).toBeGreaterThan(first.count);
+  });
+
+  it('a zombie bites the living of any colony, and towers shoot the dead', () => {
+    const s = createEmptyState(30, 10, 3, 'local');
+    addColony(s, 2 * 30 + 3, tuning);
+    const zombie = { id: s.nextUnitId++, owner: 0, type: UnitType.Zombie, x: 8.5, y: 3.5, hp: 30, home: -1, cooldown: 0, facing: 1, target: 1 };
+    const soldier = { id: s.nextUnitId++, owner: 1, type: UnitType.Warrior, x: 9.2, y: 3.5, hp: 1000, home: -1, cooldown: 1000, facing: -1 };
+    s.units.push(zombie, soldier);
+    run(s, 20);
+    expect(soldier.hp).toBeLessThan(1000);
+    // The Center Tower is shooting at it.
+    expect(zombie.hp).toBeLessThan(30);
   });
 
   it('Last Stand: every rival targets the player; surviving the clock wins', () => {

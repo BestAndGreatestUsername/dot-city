@@ -12,7 +12,7 @@ import { Renderer } from './render/renderer';
 import { SoundSystem, type Listener } from './audio/audio';
 import { doctrineOf } from './sim/ai';
 import { MAP_NAMES, MAP_TYPES, mapTypeFor, type MapType } from './sim/mapgen';
-import { crownHolder, MODES, modeInfo, modeLeader, type GameMode } from './sim/modes';
+import { MODES, modeInfo, modeLeader, type GameMode } from './sim/modes';
 import { drawMapPreview, iconOf, Logo } from './ui/title';
 import {
   categoryOf,
@@ -310,6 +310,9 @@ function playEvents(): void {
       case 'airborne':
         sound.play('warn');
         break;
+      case 'rise':
+        sound.play('groan', 0.8, { x: e.x, y: e.y }, ear);
+        break;
       case 'launch':
         // Loud when it concerns you; a distant roar otherwise.
         sound.play('missile', e.owner === PLAYER || e.victim === PLAYER ? 1 : 0.35);
@@ -504,11 +507,6 @@ toast.addEventListener('click', () => {
   toast.classList.add('hidden');
 });
 
-/** The crown's square, in cells. */
-function crownSpot(): [number, number] {
-  return [(state.crown % state.width) + 0.5, ((state.crown / state.width) | 0) + 0.5];
-}
-
 /** The middle of a colony's tower, in cells. */
 function towerSpot(id: number): [number, number] {
   const c = state.colonies[id - 1];
@@ -572,9 +570,9 @@ function noteEvents(): void {
       else showEnd(false, 'DEFEAT', `${info.name}: ${colonyName(e.owner)} ${e.reason}.`);
       continue;
     }
-    if (e.type === 'crown') {
-      if (e.owner === PLAYER) showToast('YOU HOLD THE CROWN! KEEP IT', false, crownSpot());
-      else if (e.owner > 0) showToast(`${colonyName(e.owner).toUpperCase()} HOLDS THE CROWN`, true, crownSpot());
+    if (e.type === 'wave') {
+      showToast(e.wave === 1 ? 'THE DEAD RISE! DEFEND YOUR CITY' : `WAVE ${e.wave}: THE DEAD RISE AGAIN (${e.count})`, true);
+      sound.play('warn');
       continue;
     }
     if (e.type === 'launch' && e.nuke) {
@@ -851,21 +849,11 @@ function drawMinimap(): void {
     d[c * 4 + 2] = col[2];
     d[c * 4 + 3] = 255;
   }
-  // The crown: a gold cross that blinks.
-  if (state.crown >= 0 && Math.floor(performance.now() / 400) % 2 === 0) {
-    const cx = state.crown % w;
-    const cy = (state.crown / w) | 0;
-    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const k = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) * 4;
-      d[k] = 255;
-      d[k + 1] = 215;
-      d[k + 2] = 80;
-    }
-  }
   // Armies: a bright dot per unit, in its colony's light colour.
   for (const u of state.units) {
     const c = Math.floor(u.y) * w + Math.floor(u.x);
-    const team = TEAM_RGB[(u.owner - 1) % TEAM_RGB.length].light;
+    // The dead show as sickly green.
+    const team = u.owner > 0 ? TEAM_RGB[(u.owner - 1) % TEAM_RGB.length].light : [150, 200, 90];
     d[c * 4] = team[0];
     d[c * 4 + 1] = team[1];
     d[c * 4 + 2] = team[2];
@@ -1053,15 +1041,15 @@ function refreshObjective(): void {
   else if (state.mode === 'goldrush') {
     const lead = modeLeader(state);
     text = `GOLD RUSH ${Math.floor(me().gold)}/${m.goldRushTarget}` + (lead && lead !== PLAYER ? ` · ${name(lead)} ${Math.floor(state.colonies[lead - 1].gold)}` : '');
-  } else if (state.mode === 'crown') {
-    const holder = crownHolder(state);
-    const need = m.crownSeconds * tuning.tickRate;
-    text = holder ? `CROWN: ${name(holder)} ${mmss(state.colonies[holder - 1].crownTicks)}/${mmss(need)}` : 'CROWN: UNCLAIMED';
-    if (holder !== PLAYER && me().crownTicks > 0) text += ` · YOU ${mmss(me().crownTicks)}`;
+  } else if (state.mode === 'apocalypse') {
+    let dead = 0;
+    for (const u of state.units) if (u.owner === 0) dead++;
+    const alive = state.colonies.filter((c) => c.alive).length;
+    text = `WAVE ${state.wave} · NEXT ${mmss(state.nextWave - state.tick)} · ${dead} DEAD WALK · ${alive} CITIES LEFT`;
   } else if (state.mode === 'blitz') text = 'BLITZ';
   else if (state.mode === 'sandbox') text = 'SANDBOX';
   el.classList.toggle('hidden', text === '');
-  el.classList.toggle('alarm', state.mode === 'crown' && crownHolder(state) > 0 && crownHolder(state) !== PLAYER);
+  el.classList.toggle('alarm', state.mode === 'apocalypse' && state.nextWave - state.tick < 5 * tuning.tickRate);
   if (el.textContent !== text) el.textContent = text;
 }
 
@@ -1291,7 +1279,6 @@ function describe(cell: number): string {
       ? `<span><b>Interior house</b> — no empty neighbour, so it has no growth left to lose.</span>`
       : `<span><b>${who} interior house</b> — it cannot grow any more.</span>`;
   }
-  if (cell === state.crown) return `<span><b>The Crown</b> — grow your city onto this square and hold it for ${Math.round(tuning.modes.crownSeconds / 60)} minutes in all to win. ${crownHolder(state) ? `Held by ${crownHolder(state) === PLAYER ? 'you' : colonyName(crownHolder(state))}.` : 'Nobody holds it yet.'}</span>`;
   if (state.feature[cell] === 1) return '<span><b>Ancient Ruins</b> — grow your city onto this square for a <b>free discovery</b>. First city to reach it wins it.</span>';
   if (state.feature[cell] === 2) return `<span><b>Treasure</b> — grow your city onto this square for <b>+${tuning.map.treasureGold} gold</b>. First city to reach it wins it.</span>`;
   if (kind === Kind.Rubble) return '<span><b>Rubble</b> — nothing can grow here until it clears. Units can cross it.</span>';
@@ -1723,7 +1710,7 @@ const MODE_ICONS: Record<GameMode, () => HTMLCanvasElement> = {
   conquest: () => iconOf(renderer.sprites.colonies[0].tower, 2),
   laststand: () => iconOf(renderer.sprites.colonies[1].buildings[Kind.Bastion]),
   goldrush: () => iconOf(renderer.sprites.icons.gold),
-  crown: () => iconOf(renderer.sprites.crown),
+  apocalypse: () => iconOf(renderer.sprites.horde.units[UnitType.Brute][0]),
   blitz: () => iconOf(renderer.sprites.colonies[2].buildings[Kind.Lightning]),
   sandbox: () => iconOf(renderer.sprites.colonies[4].buildings[Kind.Plaza]),
 };
@@ -1793,6 +1780,7 @@ function setupTitle(): void {
     'Tip: you only get a handful of discoveries a game. Specialise.',
     'Tip: a Hex Tower turns light enemies to your side.',
     'Tip: farms are free but fragile. Grow them in big blocks.',
+    'Tip: in an Apocalypse, the dead rise just outside every city. Wall your edges.',
   ];
   $('title-foot').textContent = tips[Math.floor(Math.random() * tips.length)];
 }
@@ -1856,7 +1844,7 @@ function titleFrame(now: number, dt: number): void {
   if (now > titleCam.next) {
     titleCam.next = now + 9000;
     // Somewhere worth watching: the middle of a marching army, or else a random city.
-    const marching = state.units.filter((u) => state.colonies[u.owner - 1].order > 0);
+    const marching = state.units.filter((u) => u.owner === 0 || state.colonies[u.owner - 1].order > 0);
     if (marching.length > 0) {
       const u = marching[Math.floor(Math.random() * marching.length)];
       titleCam.x = u.x;

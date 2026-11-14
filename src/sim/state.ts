@@ -61,8 +61,8 @@ export function createEmptyState(width: number, height: number, seed: number, mo
     lastHit: new Int32Array(n).fill(-1000000),
     strikes: [],
     mode: 'conquest',
-    crown: -1,
-    crownHolder: 0,
+    wave: 0,
+    nextWave: 0,
     winner: 0,
     colonies: [],
   };
@@ -100,7 +100,6 @@ export function addColony(s: GameState, towerCell: number, t: Tuning): Colony {
     offer: null,
     ageOffer: 0,
     boosts: 0,
-    crownTicks: 0,
     age: 1,
     unlocked: [],
     bonusGold: 0,

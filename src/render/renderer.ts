@@ -90,6 +90,9 @@ const BLAST_MS: Record<BlastStyle, number> = { fire: 320, frost: 420, heal: 560,
 /** How often a block of farms shows what it earned. */
 const HARVEST_MS = 8000;
 
+/** The colours of the dead. */
+const HORDE = { name: 'Horde', main: '#5e4b70', dark: '#3a2f48', light: '#a597b8' };
+
 /** Buildings that reach a square area around them: their area is outlined when placed or hovered. */
 const AREA_KINDS: number[] = [Kind.Factory, Kind.PowerPlant, Kind.Plaza, Kind.Radar, Kind.Granary, Kind.University, Kind.Market];
 
@@ -116,6 +119,8 @@ export class Renderer {
   private particles: Particle[] = [];
   private floaters: Floater[] = [];
   private seen = new Map<number, Seen>();
+  /** When each unit was first drawn: the dead take a moment to climb out of the ground. */
+  private bornAt = new Map<number, number>();
   private shakeUntil = 0;
   private shakeSize = 0;
   private shakeStart = 0;
@@ -447,6 +452,11 @@ export class Renderer {
           if (strike) this.burst(strike.x0, strike.y0, e.nuke ? 24 : 12, [PAL.stoneLight, PAL.paper, PAL.fireLight], now, e.nuke ? 2.4 : 1.6, -0.4);
           break;
         }
+        case 'rise':
+          // The ground splits and the dead claw out: clods of earth and a puff of grave dust.
+          this.burst(e.x, e.y + 0.3, 10, [PAL.groundDark, PAL.trunk, PAL.ground, '#5d6b4a'], now, 2, 1.2);
+          effect('puff', -1, e.x, e.y + 0.2);
+          break;
         case 'charm':
           this.floaters.push({ x: e.x, y: e.y - 0.7, text: 'BEWITCHED!', color: PAL.holy, start: now, life: 1100 });
           break;
@@ -463,7 +473,7 @@ export class Renderer {
         }
         case 'unitDied': {
           effect('puff', -1, e.x, e.y);
-          const team = COLONY[(e.owner - 1) % COLONY.length];
+          const team = e.owner > 0 ? COLONY[(e.owner - 1) % COLONY.length] : HORDE;
           this.burst(e.x, e.y, 10, [team.main, team.dark, team.light, PAL.paper], now, 2.2, 1);
           break;
         }
@@ -889,21 +899,6 @@ export class Renderer {
     const g = this.ctx;
     const z = this.zoom;
     const w = s.width;
-    if (s.crown >= 0) {
-      // The crown floats over its square, ringed in the colours of whoever holds it.
-      const cx = this.wx((s.crown % w) + 0.5) * size - ox;
-      const cy = this.wy(((s.crown / w) | 0) + 0.5) * size - oy;
-      const holder = s.owner[s.crown];
-      const ring = holder > 0 ? COLONY[(holder - 1) % COLONY.length].main : PAL.gold;
-      const pulse = 0.5 + 0.5 * Math.sin(now / 260);
-      this.ring(cx, cy, size * (1.1 + 0.25 * pulse), z, ring, 0.55 + 0.35 * pulse);
-      this.ring(cx, cy, size * 2.2, z, PAL.gold, 0.18);
-      const bob = Math.round(Math.sin(now / 300) * z);
-      const big = this.sprites.crown.width * z * 1.5;
-      g.fillStyle = 'rgba(18, 19, 31, 0.35)';
-      g.fillRect(Math.round(cx - big * 0.35), Math.round(cy + size * 0.3), Math.round(big * 0.7), z);
-      g.drawImage(this.sprites.crown, Math.round(cx - big / 2), Math.round(cy - size * 0.9 - big / 2 + bob), big, big);
-    }
     for (let c = 0; c < s.feature.length; c++) {
       const f = s.feature[c];
       if (f === 0) continue;
@@ -1028,9 +1023,10 @@ export class Renderer {
       let seen = this.seen.get(u.id);
       if (!seen) {
         seen = { x: u.x, y: u.y, hp: u.hp, flashUntil: 0, movedAt: 0, lungeStart: 0, lungeX: 0, lungeY: 0, trail: 1 };
+        this.bornAt.set(u.id, now);
         this.seen.set(u.id, seen);
         // A new recruit arrives in a puff of its colony's colour.
-        const team = COLONY[(u.owner - 1) % COLONY.length];
+        const team = u.owner > 0 ? COLONY[(u.owner - 1) % COLONY.length] : HORDE;
         this.burst(u.x, u.y, 6, [team.light, PAL.paper], now, 1.2, -0.4);
       }
       if (Math.abs(u.x - seen.x) + Math.abs(u.y - seen.y) > 1e-3) seen.movedAt = now;
@@ -1044,12 +1040,12 @@ export class Renderer {
       seen.y = u.y;
       seen.hp = u.hp;
 
-      const team = this.sprites.colonies[(u.owner - 1) % COLONY.length];
+      const team = u.owner > 0 ? this.sprites.colonies[(u.owner - 1) % COLONY.length] : this.sprites.horde;
       const facing = u.facing >= 0 ? 0 : 1;
       const walking = now - seen.movedAt < 160;
       const step = walking && (Math.floor(now / 130) + u.id) % 2 === 1;
       const sprite = (step ? team.unitsWalk : team.units)[u.type][facing];
-      const giant = u.type === UnitType.Giant;
+      const giant = u.type === UnitType.Giant || u.type === UnitType.Brute;
       const flying = unitTuning(this.tuning, u.type).flies === true;
       // Assassins: barely visible, to their enemies most of all.
       const sneaky = u.type === UnitType.Assassin ? (u.owner === this.player ? 0.7 : 0.45) : 1;
@@ -1085,7 +1081,14 @@ export class Renderer {
       g.fillRect(Math.round(cx - unitSize * 0.35), Math.round(feet - z), Math.round(unitSize * 0.7), z * (giant ? 2 : 1));
 
       g.globalAlpha = sneaky;
-      g.drawImage(sprite, x, y - bob - lift, unitSize, unitSize);
+      const risen = u.owner === 0 ? Math.min(1, (now - (this.bornAt.get(u.id) ?? 0)) / 900) : 1;
+      if (risen < 1) {
+        // Only the part above the ground shows, climbing out.
+        const show = Math.max(1, Math.round(sprite.height * risen));
+        g.drawImage(sprite, 0, 0, sprite.width, show, x, y - bob + unitSize - (unitSize * show) / sprite.height, unitSize, (unitSize * show) / sprite.height);
+      } else {
+        g.drawImage(sprite, x, y - bob - lift, unitSize, unitSize);
+      }
       g.globalAlpha = 1;
       if (u.type === UnitType.Gunship) {
         // Rotor: a blur that flickers between two lengths.
@@ -1114,7 +1117,10 @@ export class Renderer {
         this.healthBar(now, cx - w / 2, y - bob - lift - 3 * z, w, share, seen.trail, false);
       }
     }
-    for (const id of this.seen.keys()) if (!alive.has(id)) this.seen.delete(id);
+    for (const id of this.seen.keys()) if (!alive.has(id)) {
+      this.seen.delete(id);
+      this.bornAt.delete(id);
+    }
   }
 
   /** Money and science buildings pop their earnings every few seconds, so you can see them work. */

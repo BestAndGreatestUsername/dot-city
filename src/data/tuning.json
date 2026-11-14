@@ -327,6 +327,27 @@
       "range": 3,
       "hunt": 8,
       "flies": true
+    },
+    "zombie": {
+      "hp": 30,
+      "speed": 0.75,
+      "damage": 4,
+      "cooldownSeconds": 1.2,
+      "cap": 0,
+      "spawnSeconds": 0,
+      "siege": 1.5,
+      "hunt": 5
+    },
+    "brute": {
+      "hp": 240,
+      "speed": 0.5,
+      "damage": 20,
+      "cooldownSeconds": 2,
+      "cap": 0,
+      "spawnSeconds": 0,
+      "siege": 2.5,
+      "armor": 0.7,
+      "hunt": 4
     }
   },
   "ai": {
@@ -694,11 +715,17 @@
   "modes": {
     "lastStandSeconds": 900,
     "goldRushTarget": 2500,
-    "crownSeconds": 180,
     "blitzEconomy": 2,
     "blitzGrowth": 1.5,
     "blitzStartGold": 150,
     "blitzGrace": 0.4,
-    "sandboxStartGold": 2000
+    "sandboxStartGold": 2000,
+    "apocalypseGraceSeconds": 120,
+    "waveSeconds": 45,
+    "waveBase": 3,
+    "waveGrowth": 1.3,
+    "waveHpGrowth": 0.08,
+    "bruteFromWave": 4,
+    "maxDead": 250
   }
 }

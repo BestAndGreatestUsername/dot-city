@@ -136,6 +136,8 @@ const RAM_UNIT = ['......', '.RRRR.', 'RRRRRR', 'kkkkMM', 'kkkkMM', '.p..p.'];
 const MAGE_UNIT = ['..VV.e', '.VVVVk', '..ff.k', '.RRRRk', '.RRR.k', '.p.p.k'];
 const ASSASSIN_UNIT = ['..pp..', '..pf..', '.pRRp.', 'W.RRp.', '..rr..', '.p.p..'];
 const GUNSHIP_UNIT = ['........', '...M....', '..RRRR..', 'MRRRRRRn', '.RRRRRR.', '...M....', '..MMMM..', '........'];
+const ZOMBIE_UNIT = ['..GG..', '..Gp..', '.RRRGG', 'GRrR..', '..rr..', '.p..p.'];
+const BRUTE_UNIT = ['..GGGG..', '..GpGp..', '..GGGG..', 'GRRRRRRG', 'GRRrRRRG', '.RRRRRR.', '..rr.rr.', '..pp.pp.'];
 const LAIR = ['..KKKK..', '.KKKKKK.', 'KKKRrKKK', 'KKppppKK', 'KppppppK', 'KppppppK', 'KkpppkKK', 'KKKKKKKK'];
 
 const WARRIOR_UNIT = ['..ff..', '..ff.W', '.RRRW.', '.RRR..', '..rr..', '.p.p..'];
@@ -179,8 +181,8 @@ export interface SpriteSet {
   /** Landmarks: Ancient Ruins and Treasure. */
   ruins: Sprite;
   treasure: Sprite;
-  /** King of the Hill: the crown. */
-  crown: Sprite;
+  /** Apocalypse: the dead, in their own rotten colours. */
+  horde: ColonySprites;
 }
 
 function colonySprites(c: ColonyColors): ColonySprites {
@@ -246,6 +248,8 @@ function colonySprites(c: ColonyColors): ColonySprites {
     [UnitType.Mage]: MAGE_UNIT,
     [UnitType.Assassin]: ASSASSIN_UNIT,
     [UnitType.Gunship]: GUNSHIP_UNIT,
+    [UnitType.Zombie]: ZOMBIE_UNIT,
+    [UnitType.Brute]: BRUTE_UNIT,
   };
   const unitsWalk: Record<number, [Sprite, Sprite]> = {};
   const unitsFlash: Record<number, [Sprite, Sprite]> = {};
@@ -338,6 +342,8 @@ function colonySprites(c: ColonyColors): ColonySprites {
       [UnitType.Mage]: both(MAGE_UNIT),
       [UnitType.Assassin]: both(ASSASSIN_UNIT),
       [UnitType.Gunship]: both(GUNSHIP_UNIT),
+      [UnitType.Zombie]: both(ZOMBIE_UNIT),
+      [UnitType.Brute]: both(BRUTE_UNIT),
     },
     unitsWalk,
     unitsFlash,
@@ -383,12 +389,12 @@ export function buildSprites(): SpriteSet {
     mountains: MOUNTAINS.map((rows) => paint(rows, rock)),
     rubble: paint(RUBBLE, { M: PAL.rockMid, m: PAL.rockDark }),
     colonies: COLONY.map(colonySprites),
+    horde: colonySprites({ name: 'Horde', main: '#5e4b70', dark: '#3a2f48', light: '#a597b8' }),
     icons: {
       gold: paint(COIN, { g: PAL.goldDark, G: PAL.gold }),
       science: paint(FLASK, { b: PAL.scienceDark, B: PAL.science, L: PAL.scienceLight }),
     },
     ruins: paint(['S.....S.', 'S..S..S.', 'S..S.vS.', 'S.vSvvS.', 'SvvSvvS.', 'SSSSSSSS', 'ssssssss', '........'], { S: PAL.stoneLight, s: PAL.stoneMid, v: PAL.void }),
-    crown: paint(['........', 'G..G..G.', 'GG.GG.GG', 'GGGGGGGG', 'GRGGBGRG', 'GGGGGGGG', 'gggggggg', '........'], { G: PAL.gold, g: PAL.goldDark, R: PAL.bad, B: PAL.iceDark }),
     treasure: paint(['........', '..bbbb..', '.bbbbbb.', 'kGkkkkGk', 'kGkgGkGk', 'kGkkkkGk', 'kkkkkkkk', 'G.g..G.g'], { k: PAL.trunk, b: PAL.fur, g: PAL.goldDark, G: PAL.gold }),
   };
 }

@@ -127,7 +127,7 @@ export function stepRegen(s: GameState, t: Tuning): void {
   for (const u of s.units) {
     if (u.hp <= 0) continue;
     const colony = s.colonies[u.owner - 1];
-    if (colony.mods.unitRegen <= 0) continue;
+    if (!colony || colony.mods.unitRegen <= 0) continue;
     const full = unitMaxHp(t, colony, u.type);
     if (u.hp < full) u.hp = Math.min(full, u.hp + colony.mods.unitRegen);
   }

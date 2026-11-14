@@ -29,7 +29,6 @@
 import { ATTACKING, ECONOMY, isAttacking, isLocked, isWall, PRODUCERS, PRODUCES, SCIENCE, towerRange, unitTuning, unlockTuning } from './catalog';
 import { buildingTuning, buildingYield, canAfford, terrainAround } from './economy';
 import { towerMaxHealth } from './health';
-import { crownHolder } from './modes';
 import { researchOption } from './research';
 import { nextFloat, nextInt } from './rng';
 import { colonySize, isGrowable, ownFarmNeighbours } from './state';
@@ -803,7 +802,6 @@ export function chooseTarget(s: GameState, t: Tuning, colony: Colony, aggressor:
     const human = s.colonies.find((c) => c.alive && !s.bots.includes(c.id));
     if (human) return human.id;
   }
-  const holder = s.mode === 'crown' ? crownHolder(s) : 0;
   const [tx, ty] = towerCentre(s, colony);
   let best = 0;
   let bestScore = -Infinity;
@@ -825,7 +823,7 @@ export function chooseTarget(s: GameState, t: Tuning, colony: Colony, aggressor:
     const lead = Math.max(0, Math.min(1.5, colonySize(other) / Math.max(1, average) - 1));
     const away = other.order > 0 && other.order !== colony.id ? 0.8 : 0;
     const score =
-      40 / (10 + far) + 6 / (4 + defence) + (other.id === aggressor ? 2 : 0) + (other.id === grudge ? 5 : 0) + 2 * lead + away - 0.3 * Math.max(0, others - 1) + 0.3 * nextFloat(s) + (other.id === holder ? 6 : 0);
+      40 / (10 + far) + 6 / (4 + defence) + (other.id === aggressor ? 2 : 0) + (other.id === grudge ? 5 : 0) + 2 * lead + away - 0.3 * Math.max(0, others - 1) + 0.3 * nextFloat(s);
     if (score > bestScore) {
       bestScore = score;
       best = other.id;

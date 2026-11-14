@@ -121,6 +121,8 @@ export const UNIT_KEY: Record<number, string> = {
   [UnitType.Mage]: 'mage',
   [UnitType.Assassin]: 'assassin',
   [UnitType.Gunship]: 'gunship',
+  [UnitType.Zombie]: 'zombie',
+  [UnitType.Brute]: 'brute',
 };
 
 export function unitTuning(t: Tuning, type: number): UnitTuning {
@@ -128,8 +130,9 @@ export function unitTuning(t: Tuning, type: number): UnitTuning {
 }
 
 /** Full health of a unit, with its colony's research. */
-export function unitMaxHp(t: Tuning, colony: Colony, type: number): number {
-  return unitTuning(t, type).hp * colony.mods.unitHealth;
+/** (The dead belong to no colony: then there is no research to count.) */
+export function unitMaxHp(t: Tuning, colony: Colony | undefined, type: number): number {
+  return unitTuning(t, type).hp * (colony?.mods.unitHealth ?? 1);
 }
 
 /** Towers that hurt enemy units. */

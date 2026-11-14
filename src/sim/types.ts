@@ -104,6 +104,9 @@ export const UnitType = {
   Mage: 16,
   Assassin: 17,
   Gunship: 18,
+  /** Apocalypse: the dead. They belong to nobody (owner 0) and attack everyone. */
+  Zombie: 19,
+  Brute: 20,
 } as const;
 
 /** D1: "local" is the confirmed model; "pressure" exists only for comparison. */
@@ -236,7 +239,16 @@ export interface Tuning {
   modes: {
     lastStandSeconds: number;
     goldRushTarget: number;
-    crownSeconds: number;
+    apocalypseGraceSeconds: number;
+    waveSeconds: number;
+    /** Zombies per city in the first wave, and how many more each wave. */
+    waveBase: number;
+    waveGrowth: number;
+    /** Extra health per wave (0.06 = +6%). */
+    waveHpGrowth: number;
+    bruteFromWave: number;
+    /** At most this many of the dead walk at once. */
+    maxDead: number;
     blitzEconomy: number;
     blitzGrowth: number;
     blitzStartGold: number;
@@ -499,6 +511,8 @@ export interface Unit {
   charge?: number;
   /** Bomber: the square it is flying to bomb (-1 = none chosen yet). */
   target?: number;
+  /** Zombies: blocked, so shambling sideways until this tick. */
+  wanderUntil?: number;
   /** Current heading, so units turn smoothly instead of snapping between grid directions. */
   vx?: number;
   vy?: number;
@@ -563,8 +577,6 @@ export interface Colony {
   ageOffer: number;
   /** Times this colony took faster growth instead of a discovery (they count towards the next age too). */
   boosts: number;
-  /** King of the Hill: ticks this colony has held the crown, in all. */
-  crownTicks: number;
   /** The options currently on offer, or null. */
   offer: string[] | null;
   /** Buildings research has unlocked, by Kind. */
@@ -638,10 +650,10 @@ export interface GameState {
   /** Missiles and nukes in the air: they land (and do their damage) on tick `land`. */
   strikes: Strike[];
   /** The game mode (see modes.ts). */
-  mode: 'conquest' | 'laststand' | 'goldrush' | 'crown' | 'blitz' | 'sandbox';
-  /** King of the Hill: the crown's square (-1 in other modes), and who held it last tick. */
-  crown: number;
-  crownHolder: number;
+  mode: 'conquest' | 'laststand' | 'goldrush' | 'apocalypse' | 'blitz' | 'sandbox';
+  /** Apocalypse: waves of the dead so far, and the tick the next one rises. */
+  wave: number;
+  nextWave: number;
   /** The colony that met the mode's goal (0 while nobody has). */
   winner: number;
   colonies: Colony[];
@@ -693,8 +705,10 @@ export type SimEvent =
   | { type: 'airborne'; owner: number }
   /** Someone met the game mode's goal and won. */
   | { type: 'modeWin'; owner: number; reason: string }
-  /** The crown changed hands (0: nobody holds it). */
-  | { type: 'crown'; owner: number }
+  /** Apocalypse: a wave of the dead rose. */
+  | { type: 'wave'; wave: number; count: number }
+  /** A zombie clawed its way out of the ground here. */
+  | { type: 'rise'; x: number; y: number }
   /** A warhead left its silo; it lands `ticks` later at (x, y). */
   | { type: 'launch'; owner: number; victim: number; x: number; y: number; nuke: boolean }
   /** A nuke went off. */

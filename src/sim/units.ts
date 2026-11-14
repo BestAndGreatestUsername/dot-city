@@ -28,6 +28,7 @@
 import { isAttacking, isProducer, PRODUCES, unitMaxHp, unitTuning, unlockTuning } from './catalog';
 import { buildingTuning } from './economy';
 import { damageCell, healthAt, isActive } from './health';
+import { defaultMods } from './research';
 import { passableFor, solidFor, terrainSpeed } from './nav';
 import { buildBlocks, forEachNearby, type Blocks } from './spatial';
 import { cellAt, cellOfPoint, deltaX, deltaY, dist, step as neighbour, wrapPoint } from './topo';
@@ -138,7 +139,7 @@ function moveToward(s: GameState, t: Tuning, u: Unit, tx: number, ty: number, sp
   // Knights build up a charge while they move.
   u.charge = (u.charge ?? 0) + 1;
   const here = cellOfPoint(s, u.x, u.y);
-  const mods = s.colonies[u.owner - 1].mods;
+  const mods = s.colonies[u.owner - 1]?.mods ?? DEAD_MODS;
   const ground = mods.roads > 0 ? 1 : terrainSpeed(s, t, here);
   // Frost Towers chill: a slowed unit moves at a fraction of its speed.
   const chill = isSlowed(s, u) ? (u.slowFactor ?? 1) : 1;
@@ -461,6 +462,11 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
   for (const u of s.units) {
     if (u.hp <= 0) continue;
     const def = unitTuning(t, u.type);
+    // The dead belong to nobody, and go their own way.
+    if (u.owner === 0) {
+      stepZombie(s, t, u, def, blocks, events);
+      continue;
+    }
     const colony = s.colonies[u.owner - 1];
     const cooldownTicks = Math.round(def.cooldownSeconds * t.tickRate);
 
@@ -949,6 +955,100 @@ function stepGunship(
   const homeX = u.home >= 0 ? (u.home % w) + 0.5 : (colony.tower % w) + 1;
   const homeY = u.home >= 0 ? ((u.home / w) | 0) + 0.5 : ((colony.tower / w) | 0) + 1;
   fly(homeX, homeY, 0.5);
+}
+
+/** Modifiers for units that belong to no colony (the dead): none. */
+const DEAD_MODS = defaultMods();
+
+/**
+ * A zombie: bites any living unit within reach, chews on any square of any colony it touches,
+ * lurches towards the living it can see, and otherwise shambles towards the city it rose beside
+ * (or the nearest one left). Blocked by water or rock, it stumbles sideways for a while.
+ */
+function stepZombie(s: GameState, t: Tuning, u: Unit, def: UnitTuning, blocks: Blocks, events: SimEvent[]): void {
+  const w = s.width;
+  if (u.cooldown > 0) u.cooldown--;
+  const cooldownTicks = Math.round(def.cooldownSeconds * t.tickRate);
+  // 1. Bite the living.
+  let prey: Unit | null = null;
+  let best = def.hunt ?? 5;
+  forEachNearby(
+    blocks,
+    u.x,
+    u.y,
+    best,
+    (o) => {
+      if (o.owner === 0 || o.hp <= 0 || unitTuning(t, o.type).flies) return;
+      const d = dist(s, u.x, u.y, o.x, o.y);
+      if (d < best) {
+        best = d;
+        prey = o;
+      }
+    },
+    0,
+  );
+  const victim = prey as Unit | null;
+  if (victim && best <= t.combat.meleeRange + 0.15) {
+    if (u.cooldown === 0) {
+      victim.hp -= def.damage * (unitTuning(t, victim.type).armor ?? 1);
+      events.push({ type: 'strike', id: u.id, x: u.x, y: u.y, tx: victim.x, ty: victim.y, owner: 0, heavy: u.type === UnitType.Brute });
+      u.cooldown = cooldownTicks;
+    }
+    const toward = deltaX(s, u.x, victim.x);
+    if (Math.abs(toward) > 0.01) u.facing = toward > 0 ? 1 : -1;
+    return;
+  }
+  // 2. Chew on any colony's square it is touching.
+  const cell = cellOfPoint(s, u.x, u.y);
+  if (cell >= 0) {
+    for (let d = -1; d < 4; d++) {
+      const n = d < 0 ? cell : neighbour(s, cell, d);
+      if (n < 0 || s.owner[n] === 0) continue;
+      if (u.cooldown === 0) {
+        if (s.kind[n] === Kind.Thorns) u.hp -= unlockTuning(t, Kind.Thorns)?.thorns ?? 0;
+        damageCell(s, t, n, def.damage * (def.siege ?? 1), events);
+        events.push({ type: 'strike', id: u.id, x: u.x, y: u.y, tx: (n % w) + 0.5, ty: ((n / w) | 0) + 0.5, owner: 0, heavy: u.type === UnitType.Brute });
+        u.cooldown = cooldownTicks;
+      }
+      const toward = deltaX(s, u.x, (n % w) + 0.5);
+      if (Math.abs(toward) > 0.01) u.facing = toward > 0 ? 1 : -1;
+      return;
+    }
+  }
+  // 3. Lurch towards the living in sight, or else the city it rose beside (or the nearest left).
+  let gx: number;
+  let gy: number;
+  if (victim) {
+    gx = victim.x;
+    gy = victim.y;
+  } else {
+    let home = u.target !== undefined && u.target > 0 ? s.colonies[u.target - 1] : undefined;
+    if (!home || !home.alive) {
+      let far = Infinity;
+      home = undefined;
+      for (const c of s.colonies) {
+        if (!c.alive) continue;
+        const d = dist(s, u.x, u.y, (c.tower % w) + 1, ((c.tower / w) | 0) + 1);
+        if (d < far) {
+          far = d;
+          home = c;
+        }
+      }
+      u.target = home ? home.id : -1;
+    }
+    if (!home) return;
+    gx = (home.tower % w) + 1;
+    gy = ((home.tower / w) | 0) + 1;
+  }
+  if ((u.wanderUntil ?? 0) > s.tick) {
+    // Stumble sideways round whatever was in the way.
+    const dx = deltaX(s, u.x, gx);
+    const dy = deltaY(s, u.y, gy);
+    const side = u.id % 2 === 0 ? 1 : -1;
+    gx = u.x - dy * side;
+    gy = u.y + dx * side;
+  }
+  if (!moveToward(s, t, u, gx, gy, def.speed) && (u.wanderUntil ?? 0) <= s.tick) u.wanderUntil = s.tick + 15 + (u.id % 10);
 }
 
 /** The most valuable building of a colony: the dearest one; the Center Tower only when nothing else is left. */

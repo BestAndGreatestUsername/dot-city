@@ -125,6 +125,14 @@ const SOUNDS: Record<string, { tones: Tone[]; gap: number }> = {
     ],
     gap: 1500,
   },
+  groan: {
+    tones: [
+      { wave: 'sawtooth', freq: 110, to: 70, dur: 0.6, vol: 0.09, attack: 0.08 },
+      { wave: 'sawtooth', freq: 116, to: 66, dur: 0.6, vol: 0.06, attack: 0.1 },
+      { wave: 'noise', freq: 400, to: 200, dur: 0.5, vol: 0.06, filter: 'lowpass' },
+    ],
+    gap: 700,
+  },
   // Blasts and magic.
   fire: { tones: [{ wave: 'noise', freq: 1400, to: 600, dur: 0.3, vol: 0.14, filter: 'bandpass', q: 0.8 }], gap: 120 },
   frost: {

@@ -39,11 +39,11 @@ The game opens on a title screen with a live game of six AI rivals fighting it o
 | **Conquest** | The classic: destroy every rival tower. |
 | **Last Stand** | Every rival hunts you, and only you. Survive 15 minutes. |
 | **Gold Rush** | Be the first to bank 2,500 gold. Rivals race you for it. |
-| **King of the Hill** | A crown sits in the contested heart of the map. Grow onto its square and hold it for 3 minutes in all. Rivals go after whoever holds it. |
+| **Apocalypse** | The dead rise. From 2 minutes in, every 45 seconds a wave of zombies claws out of the ground just outside every city, from two or three sides, and shambles in to bite soldiers and chew through buildings. Each wave is bigger and tougher (+8% health a wave); from wave 4, hulking **brutes** come with them. Zombies belong to nobody and attack everyone; towers and armies fight them like any enemy (and a Hex Tower can turn one). Rivals still fight each other too. Last colony standing wins. |
 | **Blitz** | Everything faster: double income and science, 50% faster growth, quicker armies and building, 150 extra gold, and rivals attack much sooner. Last tower standing wins. |
 | **Sandbox** | Rivals never attack (unless you turn it on in the menu); you start with 2,000 extra gold and research three times as fast. |
 
-In every mode, taking every rival tower still wins, and losing your own still loses. The top bar shows the mode's goal and the race for it (time left, gold banked and the leader, who holds the crown and for how long).
+In every mode, taking every rival tower still wins, and losing your own still loses. The top bar shows the mode's goal and the race for it (time left, gold banked and the leader, the wave, the countdown to the next one, how many dead walk and how many cities are left).
 
 ## Difficulty
 
