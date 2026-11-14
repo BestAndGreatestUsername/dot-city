@@ -27,6 +27,10 @@ export interface ResearchOption {
   age?: number;
   /** Never offered: granted by the game itself (Anti-Air, once anyone flies). */
   auto?: boolean;
+  /** How often it turns up against an ordinary option (default 1): the Nuke is rare, Anti-Air common. */
+  weight?: number;
+  /** Only offered once someone, anywhere, has aircraft. */
+  needsAir?: boolean;
 }
 
 export const RESEARCH: ResearchOption[] = researchJson as ResearchOption[];
@@ -69,7 +73,7 @@ export function ageFor(t: Tuning, discoveries: number): number {
 export function offerPool(t: Tuning, colony: Colony, s?: GameState): ResearchOption[] {
   const tier = openTier(t, colony);
   const age = s ? colony.age : 99;
-  return RESEARCH.filter((o) => !o.auto && o.tier <= tier && (o.age ?? 1) <= age && !colony.picks.includes(o.id));
+  return RESEARCH.filter((o) => !o.auto && (!o.needsAir || (s?.airborne ?? false)) && o.tier <= tier && (o.age ?? 1) <= age && !colony.picks.includes(o.id));
 }
 
 /** Options that add income: money and science buildings, and the modifiers that raise gold or science. */
@@ -83,8 +87,9 @@ export function isIncomeOption(option: ResearchOption): boolean {
 
 /** How likely an option is to be drawn, against 1 for an ordinary one. Income is rarer. */
 export function optionWeight(t: Tuning, option: ResearchOption): number {
-  if (!isIncomeOption(option)) return 1;
-  return option.kind === 'modifier' ? t.research.incomeModifierWeight : t.research.incomeWeight;
+  const rare = option.weight ?? 1;
+  if (!isIncomeOption(option)) return rare;
+  return rare * (option.kind === 'modifier' ? t.research.incomeModifierWeight : t.research.incomeWeight);
 }
 
 /** Draw one option, by weight, and take it out of the list. */
@@ -206,5 +211,9 @@ export function defaultMods(): Mods {
     science: 1,
     buildTime: 1,
     growth: 1,
+    cost: 1,
+    houseGold: 1,
+    regen: 1,
+    unitRegen: 0,
   };
 }

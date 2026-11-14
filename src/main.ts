@@ -63,6 +63,9 @@ const TABS: Array<{ id: Category; name: string; key: string; tools: Tool[] }> = 
       { kind: Kind.Bank, name: 'BANK', label: 'Bank' },
       { kind: Kind.Plaza, name: 'PLAZA', label: 'Plaza' },
       { kind: Kind.PowerPlant, name: 'POWER', label: 'Power Plant' },
+      { kind: Kind.LumberMill, name: 'SAWMILL', label: 'Lumber Mill' },
+      { kind: Kind.Granary, name: 'GRANARY', label: 'Granary' },
+      { kind: Kind.Exchange, name: 'EXCHANGE', label: 'Stock Exchange' },
     ],
   },
   {
@@ -75,6 +78,9 @@ const TABS: Array<{ id: Category; name: string; key: string; tools: Tool[] }> = 
       { kind: Kind.Observatory, name: 'STARGAZE', label: 'Observatory' },
       { kind: Kind.Academy, name: 'ACADEMY', label: 'Academy' },
       { kind: Kind.PrintingPress, name: 'PRESS', label: 'Printing Press' },
+      { kind: Kind.Alchemist, name: 'ALCHEMY', label: 'Alchemist' },
+      { kind: Kind.University, name: 'UNIVERSITY', label: 'University' },
+      { kind: Kind.SpyDen, name: 'SPIES', label: 'Spy Den' },
     ],
   },
   {
@@ -97,6 +103,11 @@ const TABS: Array<{ id: Category; name: string; key: string; tools: Tool[] }> = 
       { kind: Kind.MachineGun, name: 'MG NEST', label: 'Machine Gun Nest' },
       { kind: Kind.AABattery, name: 'ANTI-AIR', label: 'AA Battery' },
       { kind: Kind.MissileSilo, name: 'MISSILES', label: 'Missile Silo' },
+      { kind: Kind.Hex, name: 'HEX', label: 'Hex Tower' },
+      { kind: Kind.Marksman, name: 'MARKSMAN', label: 'Marksman Tower' },
+      { kind: Kind.Railgun, name: 'RAILGUN', label: 'Railgun' },
+      { kind: Kind.Radar, name: 'RADAR', label: 'Radar' },
+      { kind: Kind.NukeSilo, name: 'NUKE', label: 'Nuke Silo' },
     ],
   },
   {
@@ -120,6 +131,10 @@ const TABS: Array<{ id: Category; name: string; key: string; tools: Tool[] }> = 
       { kind: Kind.TankFactory, name: 'TANKS', label: 'Tank Factory' },
       { kind: Kind.Airfield, name: 'BOMBERS', label: 'Airfield' },
       { kind: Kind.Factory, name: 'FACTORY', label: 'Factory' },
+      { kind: Kind.RamWorks, name: 'RAMS', label: 'Ram Works' },
+      { kind: Kind.Arcanum, name: 'MAGES', label: 'Arcane Hall' },
+      { kind: Kind.Guild, name: 'ASSASSINS', label: "Thieves' Guild" },
+      { kind: Kind.Helipad, name: 'GUNSHIPS', label: 'Helipad' },
     ],
   },
 ];
@@ -131,8 +146,8 @@ for (const tool of TOOLS) KIND_NAMES[tool.kind] = tool.label;
 const U = tuning.unlockables;
 const cap = (kind: number) => unitTuning(tuning, PRODUCES[kind]).cap;
 const KIND_NOTES: Record<number, string> = {
-  [Kind.Wall]: 'Enemies must break it to get through. Your own units walk straight over it.',
-  [Kind.Bastion]: `A wall with ${U.bastion.health} health, more than three times an ordinary wall.`,
+  [Kind.Wall]: `A tough barrier (${tuning.health.wall} health): enemies must break it to get through. Your own units walk straight over it.`,
+  [Kind.Bastion]: `A wall with ${U.bastion.health} health, about twice an ordinary wall.`,
   [Kind.Farm]: 'Free, but very fragile. Alone it earns less than a house; every farm of yours touching it adds more, so grow them in big blocks.',
   [Kind.Mine]: 'Earns gold, and much more for every mountain around it.',
   [Kind.Fishery]: 'Earns gold, and more for every square of water around it.',
@@ -159,7 +174,7 @@ const KIND_NOTES: Record<number, string> = {
   [Kind.Stable]: `Keeps ${cap(Kind.Stable)} knights alive. The hunters: they spot enemy units from far off and ride them down, a charge hitting three times as hard. Poor against buildings.`,
   [Kind.Workshop]: `Keeps ${cap(Kind.Workshop)} catapults alive. The artillery: boulders at buildings from ${unitTuning(tuning, UnitType.Catapult).range} squares. They never fight units.`,
   [Kind.Monastery]: `Keeps ${cap(Kind.Monastery)} monks alive. The healers: they walk with your army and mend it. They never fight.`,
-  [Kind.PowderHouse]: `Keeps ${cap(Kind.PowderHouse)} sappers alive. The demolishers: they run at enemy walls and blow them apart, themselves included.`,
+  [Kind.PowderHouse]: `Keeps ${cap(Kind.PowderHouse)} sappers alive. The demolishers: they run at enemy walls and blow them apart, themselves included. The only unit that can blast a way through mountains.`,
   [Kind.Plaza]: `Your city grows ${U.plaza.boost} times as fast within ${U.plaza.radius} squares of it: steer where it spreads.`,
   [Kind.Thorns]: `A tough wall (${U.thorns.health} health) that cuts every enemy who strikes it for ${U.thorns.thorns} damage.`,
   [Kind.MusketRange]: `Keeps ${cap(Kind.MusketRange)} musketeers alive. Slow, huge shots that pierce armour: ${unitTuning(tuning, UnitType.Musketeer).antiHeavy}x damage to heavy units (knights, shields, giants, tanks).`,
@@ -171,7 +186,22 @@ const KIND_NOTES: Record<number, string> = {
   [Kind.Airfield]: `Keeps ${cap(Kind.Airfield)} bombers alive. They fly over walls and water to bomb the most valuable building of the colony you attack. Only anti-air and Center Towers can hit them.`,
   [Kind.AABattery]: 'The only tower that can shoot down aircraft. It shoots at nothing else.',
   [Kind.PowerPlant]: `Money buildings within ${U.power.radius} squares earn ${Math.round((U.power.boost ?? 0) * 100)}% more.`,
-  [Kind.MissileSilo]: `Every ${U.silo.cooldownSeconds} seconds it strikes the most valuable building of your enemy, anywhere on the map.`,
+  [Kind.MissileSilo]: `Every ${U.silo.cooldownSeconds} seconds it fires a missile at a random building (never a house) of the colony you are attacking, or of the nearest rival while you hold. Any range: it lands ${U.silo.flightSeconds} seconds later and blasts everything within ${U.silo.splash} squares.`,
+  [Kind.NukeSilo]: `Every ${U.nuke.cooldownSeconds} seconds a nuclear warhead flies at a random building of the colony you are attacking. It lands ${U.nuke.flightSeconds} seconds later and flattens everything within ${U.nuke.splash} squares, armies included.`,
+  [Kind.Hex]: `Every ${U.hex.cooldownSeconds} seconds it bewitches the nearest light enemy in range (${U.hex.charmHp} health or less): it fights for you from then on.`,
+  [Kind.Marksman]: `Range ${U.marksman.range}. Armour-piercing shots that pick off the back line first: monks, bearers, sappers, mages, catapults and artillery.`,
+  [Kind.Railgun]: `Range ${U.railgun.range}. A slug that tears through every enemy unit in a straight line, armour and all.`,
+  [Kind.Radar]: `Every tower within ${U.radar.radius} squares of it reaches ${U.radar.boost} squares further.`,
+  [Kind.LumberMill]: 'Earns gold, and more for every forest square still standing around it.',
+  [Kind.Granary]: `Earns gold for every farm of yours within ${U.granary.radius} squares.`,
+  [Kind.Exchange]: 'Earns gold for every money building you own, anywhere in your city.',
+  [Kind.Alchemist]: `Turns gold into science: burns ${U.alchemist.upkeep} gold a second for ${U.alchemist.science} science. Stops when your treasury is empty.`,
+  [Kind.University]: `Makes science for every house of yours within ${U.university.radius} squares.`,
+  [Kind.SpyDen]: 'Steals science from every rival still standing: worth most early, in a crowded game.',
+  [Kind.RamWorks]: `Keeps ${cap(Kind.RamWorks)} rams alive. The wall-breakers: armoured, they smash buildings three times as hard. They never fight units.`,
+  [Kind.Arcanum]: `Keeps ${cap(Kind.Arcanum)} mages alive. Fireballs from ${unitTuning(tuning, UnitType.Mage).range} squares that burst over a whole group of enemy units. Fragile.`,
+  [Kind.Guild]: `Keeps ${cap(Kind.Guild)} assassins alive. Enemy towers cannot see them until they are ${unitTuning(tuning, UnitType.Assassin).stealth} squares away: they slip past defences. Fast and deadly up close.`,
+  [Kind.Helipad]: `Keeps ${cap(Kind.Helipad)} gunships alive. They fly over everything and rake enemy units with fire; they never touch buildings. Only anti-air and Center Towers can hit them.`,
   [Kind.BannerHall]: `Keeps ${cap(Kind.BannerHall)} standard bearers alive. They never fight, but every unit near a banner hits ${Math.round((unitTuning(tuning, UnitType.Bearer).auraDamage ?? 0) * 100)}% harder and moves ${Math.round((unitTuning(tuning, UnitType.Bearer).auraSpeed ?? 0) * 100)}% faster.`,
   [Kind.GiantLair]: 'Keeps one giant alive. The juggernaut: its stomp hits every enemy around it and crushes the buildings too.',
 };
@@ -199,6 +229,10 @@ const UNIT_NAMES: Record<number, [string, string]> = {
   [UnitType.Artillery]: ['gun', 'guns'],
   [UnitType.Tank]: ['tank', 'tanks'],
   [UnitType.Bomber]: ['bomber', 'bombers'],
+  [UnitType.Ram]: ['ram', 'rams'],
+  [UnitType.Mage]: ['mage', 'mages'],
+  [UnitType.Assassin]: ['assassin', 'assassins'],
+  [UnitType.Gunship]: ['gunship', 'gunships'],
 };
 void UNIT_KEY;
 
@@ -246,12 +280,12 @@ function playEvents(): void {
         sound.play('hit', 1, cellSpot(e.cell), ear);
         break;
       case 'shot': {
-        const name = { bolt: 'bolt', arrow: 'arrow', ballista: 'ballista', spear: 'spear', lightning: 'zap', cannon: 'thud', rock: 'whoosh', missile: 'missile' }[e.style ?? 'bolt'];
+        const name = { bolt: 'bolt', arrow: 'arrow', ballista: 'ballista', spear: 'spear', lightning: 'zap', cannon: 'thud', rock: 'whoosh', missile: 'missile', magic: 'magic', rail: 'rail', hex: 'hex', sniper: 'sniper', gun: 'gun' }[e.style ?? 'bolt'];
         sound.play(name, 1, { x: e.x0, y: e.y0 }, ear);
         break;
       }
       case 'blast': {
-        const name = { fire: 'fire', frost: 'frost', heal: 'heal', cannon: 'boom' }[e.style];
+        const name = { fire: 'fire', frost: 'frost', heal: 'heal', cannon: 'boom', magic: 'fire', hex: 'heal', nuke: 'nuke' }[e.style];
         sound.play(name, 1, { x: e.x, y: e.y }, ear);
         break;
       }
@@ -272,6 +306,11 @@ function playEvents(): void {
         break;
       case 'airborne':
         sound.play('warn');
+        break;
+      case 'launch':
+        // Loud when it concerns you; a distant roar otherwise.
+        sound.play('missile', e.owner === PLAYER || e.victim === PLAYER ? 1 : 0.35);
+        if (e.nuke && e.victim === PLAYER) sound.play('warn');
         break;
       case 'landmark':
         if (e.owner === PLAYER) sound.play(e.feature === 1 ? 'ruins' : 'treasure');
@@ -469,6 +508,8 @@ function towerSpot(id: number): [number, number] {
 let conquered = 0;
 /** When the player was last warned that their tower is being hit. */
 let lastTowerAlarm = -Infinity;
+let lastMissileWarning = 0;
+let lastCharmNote = 0;
 
 function clock(ticks: number): string {
   const seconds = Math.floor(ticks / tuning.tickRate);
@@ -510,9 +551,31 @@ function noteEvents(): void {
       }
       continue;
     }
+    if (e.type === 'launch' && e.nuke) {
+      const from = e.owner === PLAYER ? 'YOU' : colonyName(e.owner).toUpperCase();
+      const at = e.victim === PLAYER ? 'YOU' : colonyName(e.victim).toUpperCase();
+      showToast(`NUKE LAUNCHED! ${from} → ${at}`, e.victim === PLAYER, [e.x, e.y]);
+      continue;
+    }
+    if (e.type === 'launch' && e.victim === PLAYER) {
+      const now = performance.now();
+      if (now - lastMissileWarning > 15000) {
+        lastMissileWarning = now;
+        showToast(`INCOMING MISSILE FROM ${colonyName(e.owner).toUpperCase()}!`, true, [e.x, e.y]);
+      }
+      continue;
+    }
+    if (e.type === 'charm' && (e.owner === PLAYER || e.from === PLAYER)) {
+      const now = performance.now();
+      if (now - lastCharmNote > 20000) {
+        lastCharmNote = now;
+        showToast(e.owner === PLAYER ? 'YOUR HEX TOWER BEWITCHED AN ENEMY: IT FIGHTS FOR YOU NOW' : 'A HEX TOWER TURNED ONE OF YOUR UNITS AGAINST YOU', e.from === PLAYER, [e.x, e.y]);
+      }
+      continue;
+    }
     if (e.type === 'airborne') {
       const who = e.owner === PLAYER ? 'YOU HAVE' : `${colonyName(e.owner).toUpperCase()} HAS`;
-      showToast(`${who} AIRCRAFT! EVERY COLONY CAN NOW BUILD ANTI-AIR`, e.owner !== PLAYER);
+      showToast(`${who} AIRCRAFT! ANTI-AIR CAN NOW TURN UP IN RESEARCH`, e.owner !== PLAYER);
       continue;
     }
     if (e.type === 'landmark') {
@@ -858,6 +921,20 @@ function yieldsOf(kind: number): string[] {
       return [`MONEY BUILDINGS +${Math.round((spec?.boost ?? 0) * 100)}% WITHIN ${spec?.radius}`];
     case Kind.Plaza:
       return [`CITY GROWS x${spec?.boost} WITHIN ${spec?.radius}`];
+    case Kind.LumberMill:
+      return [`+${g(spec?.gold ?? 0)} GOLD/MIN`, `+${g(spec?.per ?? 0)}/MIN PER FOREST AROUND`];
+    case Kind.Granary:
+      return [`+${g(spec?.per ?? 0)} GOLD/MIN PER FARM WITHIN ${spec?.radius}`];
+    case Kind.Exchange:
+      return [`+${g(spec?.per ?? 0)} GOLD/MIN PER MONEY BUILDING YOU OWN`];
+    case Kind.Alchemist:
+      return [`+${sc(spec?.science ?? 0)} SCIENCE/MIN`, `COSTS ${g(spec?.upkeep ?? 0)} GOLD/MIN`];
+    case Kind.University:
+      return [`+${sc(spec?.per ?? 0)} SCIENCE/MIN PER HOUSE WITHIN ${spec?.radius}`];
+    case Kind.SpyDen:
+      return [`+${sc(spec?.per ?? 0)} SCIENCE/MIN PER RIVAL ALIVE`];
+    case Kind.Radar:
+      return [`TOWERS +${spec?.boost} RANGE WITHIN ${spec?.radius}`];
     default:
       return [];
   }
@@ -885,10 +962,11 @@ function statsFor(kind: number): string[] {
     out.push(`SPEED ${def.speed}`);
     out.push(`NEW UNIT EVERY ${Math.round(def.spawnSeconds * colony.mods.spawnTime)}S`);
   }
-  out.push(...yieldsOf(kind).filter((line) => kind !== Kind.Plaza && kind !== Kind.PowerPlant || !line.includes("WITHIN")));
+  out.push(...yieldsOf(kind).filter((line) => (kind !== Kind.Plaza && kind !== Kind.PowerPlant && kind !== Kind.Radar) || !line.includes('WITHIN')));
   if (kind === Kind.Plaza && spec) out.push(`GROWTH x${spec.boost}`, `REACH ${spec.radius}`);
   if ((kind === Kind.Factory || kind === Kind.PowerPlant) && spec) out.push(`+${Math.round((spec.boost ?? 0) * 100)}%`, `REACH ${spec.radius}`);
-  if (kind === Kind.MissileSilo && spec) out.push(`DAMAGE ${spec.damage}`, `EVERY ${spec.cooldownSeconds}S`, 'ANY RANGE');
+  if ((kind === Kind.MissileSilo || kind === Kind.NukeSilo) && spec) out.push('ANY RANGE', `BLAST ${spec.splash}`);
+  if (kind === Kind.Radar && spec) out.push(`+${spec.boost} RANGE`, `REACH ${spec.radius}`);
   if (kind === Kind.Thorns && spec) out.push(`CUTS ${spec.thorns} PER STRIKE`);
   return out;
 }
@@ -1154,10 +1232,10 @@ function describe(cell: number): string {
   if (state.feature[cell] === 2) return `<span><b>Treasure</b> — grow your city onto this square for <b>+${tuning.map.treasureGold} gold</b>. First city to reach it wins it.</span>`;
   if (kind === Kind.Rubble) return '<span><b>Rubble</b> — nothing can grow here until it clears. Units can cross it.</span>';
   const terrain = state.terrain[cell];
-  if (terrain === Terrain.Water) return '<span><b>Water</b> — closed to growth, and units cannot cross it.</span>';
-  if (terrain === Terrain.Mountain) return '<span><b>Mountain</b> — closed to growth. Units cross it slowly.</span>';
+  if (terrain === Terrain.Water) return '<span><b>Water</b> — closed to growth; armies on foot cannot cross it (aircraft fly over). Houses beside it earn 50% more.</span>';
+  if (terrain === Terrain.Mountain) return '<span><b>Mountain</b> — closed to growth, and armies on foot cannot cross it: only <b>Sappers</b> can blast a way through, and aircraft fly over. Houses beside it earn 50% more.</span>';
   const reach = isGrowable(state, cell) && touchesPlayer(cell) ? ' Your city can grow here next.' : '';
-  if (terrain === Terrain.Forest) return `<span><b>Forest</b> — the city grows onto it twice as fast, then it is cleared.${reach}</span>`;
+  if (terrain === Terrain.Forest) return `<span><b>Forest</b> — slow to grow into, but every square cleared pays +${tuning.economy.lumberGold} gold of timber. Lumber Mills earn from the forest left standing.${reach}</span>`;
   return `<span><b>Open grass</b> — free land.${reach}</span>`;
 }
 

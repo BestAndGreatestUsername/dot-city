@@ -98,14 +98,11 @@ export function applyCommand(s: GameState, t: Tuning, cmd: Command, events: SimE
 
 /** Advance the world by exactly one fixed tick. */
 export function step(s: GameState, t: Tuning, events: SimEvent[]): void {
-  // The first Airfield anywhere: every colony learns Anti-Air, the one answer to aircraft.
+  // The first Airfield or Helipad anywhere: from now on Anti-Air can turn up in research, and often.
   if (!s.airborne) {
-    const flier = s.colonies.find((c) => c.alive && c.counts[Kind.Airfield] > 0);
+    const flier = s.colonies.find((c) => c.alive && (c.counts[Kind.Airfield] > 0 || c.counts[Kind.Helipad] > 0));
     if (flier) {
       s.airborne = true;
-      for (const colony of s.colonies) {
-        if (!colony.unlocked.includes(Kind.AABattery)) colony.unlocked.push(Kind.AABattery);
-      }
       events.push({ type: 'airborne', owner: flier.id });
     }
   }

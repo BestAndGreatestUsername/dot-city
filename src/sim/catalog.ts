@@ -48,6 +48,21 @@ export const CATALOG_KEY: Record<number, string> = {
   [Kind.AABattery]: 'aa',
   [Kind.PowerPlant]: 'power',
   [Kind.MissileSilo]: 'silo',
+  [Kind.Hex]: 'hex',
+  [Kind.Marksman]: 'marksman',
+  [Kind.Railgun]: 'railgun',
+  [Kind.Radar]: 'radar',
+  [Kind.NukeSilo]: 'nuke',
+  [Kind.RamWorks]: 'ramworks',
+  [Kind.Arcanum]: 'arcanum',
+  [Kind.Guild]: 'guild',
+  [Kind.Helipad]: 'helipad',
+  [Kind.LumberMill]: 'lumbermill',
+  [Kind.Granary]: 'granary',
+  [Kind.Exchange]: 'exchange',
+  [Kind.Alchemist]: 'alchemist',
+  [Kind.University]: 'university',
+  [Kind.SpyDen]: 'spyden',
 };
 
 /** Research key of every building that has to be unlocked before it can be built. */
@@ -78,6 +93,10 @@ export const PRODUCES: Record<number, number> = {
   [Kind.ArtilleryWorks]: UnitType.Artillery,
   [Kind.TankFactory]: UnitType.Tank,
   [Kind.Airfield]: UnitType.Bomber,
+  [Kind.RamWorks]: UnitType.Ram,
+  [Kind.Arcanum]: UnitType.Mage,
+  [Kind.Guild]: UnitType.Assassin,
+  [Kind.Helipad]: UnitType.Gunship,
 };
 export const PRODUCERS: number[] = Object.keys(PRODUCES).map(Number);
 
@@ -98,6 +117,10 @@ export const UNIT_KEY: Record<number, string> = {
   [UnitType.Artillery]: 'artillery',
   [UnitType.Tank]: 'tank',
   [UnitType.Bomber]: 'bomber',
+  [UnitType.Ram]: 'ram',
+  [UnitType.Mage]: 'mage',
+  [UnitType.Assassin]: 'assassin',
+  [UnitType.Gunship]: 'gunship',
 };
 
 export function unitTuning(t: Tuning, type: number): UnitTuning {
@@ -110,12 +133,11 @@ export function unitMaxHp(t: Tuning, colony: Colony, type: number): number {
 }
 
 /** Towers that hurt enemy units. */
-export const ATTACKING: number[] = [Kind.Crossbow, Kind.Ballista, Kind.Flame, Kind.Frost, Kind.Lightning, Kind.Cannon, Kind.Obelisk, Kind.MachineGun, Kind.AABattery, Kind.MissileSilo];
-/** Towers that help their own side instead. */
+export const ATTACKING: number[] = [Kind.Crossbow, Kind.Ballista, Kind.Flame, Kind.Frost, Kind.Lightning, Kind.Cannon, Kind.Obelisk, Kind.MachineGun, Kind.AABattery, Kind.MissileSilo, Kind.Hex, Kind.Marksman, Kind.Railgun, Kind.NukeSilo];
 /** Buildings that help their own side instead: towers that boost or heal, and the production and power boosters. */
-export const SUPPORT: number[] = [Kind.Bell, Kind.Shrine, Kind.Factory, Kind.PowerPlant];
-export const ECONOMY: number[] = [Kind.Mine, Kind.Fishery, Kind.Market, Kind.Bank];
-export const SCIENCE: number[] = [Kind.Library, Kind.Observatory, Kind.Academy, Kind.PrintingPress];
+export const SUPPORT: number[] = [Kind.Bell, Kind.Shrine, Kind.Factory, Kind.PowerPlant, Kind.Radar];
+export const ECONOMY: number[] = [Kind.Mine, Kind.Fishery, Kind.Market, Kind.Bank, Kind.LumberMill, Kind.Granary, Kind.Exchange];
+export const SCIENCE: number[] = [Kind.Library, Kind.Observatory, Kind.Academy, Kind.PrintingPress, Kind.Alchemist, Kind.University, Kind.SpyDen];
 /** Buildings that speed up the growth of the city around them. */
 export const GROWTH: number[] = [Kind.Plaza];
 

@@ -20,6 +20,10 @@
 //   Giant     the juggernaut: its stomp hits every enemy around it and crushes the squares too
 //   Bearer    the standard bearer: never fights; every friend near its banner hits harder and
 //             moves faster
+//   Ram       the battering ram: armoured, smashes squares three times as hard; never fights units
+//   Mage      fireballs that burst over a whole group of enemy units; fragile
+//   Assassin  enemy towers only see it up close; fast and deadly
+//   Gunship   flies; rakes enemy units with fire; never touches buildings
 
 import { isAttacking, isProducer, PRODUCES, unitMaxHp, unitTuning, unlockTuning } from './catalog';
 import { buildingTuning } from './economy';
@@ -460,7 +464,8 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
     // Aircraft fly straight over everything and are not part of the ground battle.
     if (def.flies) {
       if (u.cooldown > 0) u.cooldown--;
-      stepBomber(s, t, u, def, colony, cooldownTicks, events);
+      if (u.type === UnitType.Gunship) stepGunship(s, t, u, def, colony, cooldownTicks, blocks, intruders.get(u.owner) ?? [], events);
+      else stepBomber(s, t, u, def, colony, cooldownTicks, events);
       continue;
     }
 
@@ -514,6 +519,7 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
       u.type !== UnitType.Monk &&
       u.type !== UnitType.Sapper &&
       u.type !== UnitType.Bearer &&
+      !def.noFight &&
       !(u.type === UnitType.Hound && colony.order > 0);
     if (fights) {
       let foe: Unit | null = null;
@@ -562,6 +568,15 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
               });
               if (def.crush) blastSquares(s, t, u.owner, u.x, u.y, def.splash ?? 1, baseDamage * siege * 0.5, events);
               events.push({ type: 'blast', x: u.x, y: u.y, radius: def.splash ?? 1, style: 'cannon' });
+            } else if (u.type === UnitType.Mage) {
+              // A fireball bursts over the whole group around its target.
+              const splash = def.splash ?? 1;
+              forEachNearby(blocks, enemy.x, enemy.y, splash, (o) => {
+                if (o.owner === u.owner || unitTuning(t, o.type).flies || dist(s, enemy.x, enemy.y, o.x, o.y) > splash) return;
+                o.hp -= damage * (o === enemy ? 1 : 0.7) * (unitTuning(t, o.type).armor ?? 1) / armor;
+              });
+              events.push({ type: 'shot', x0: u.x, y0: u.y, x1: enemy.x, y1: enemy.y, owner: u.owner, style: 'magic' });
+              events.push({ type: 'blast', x: enemy.x, y: enemy.y, radius: splash, style: 'magic' });
             } else if (u.type !== UnitType.Tank) {
               enemy.hp -= damage;
             }
@@ -861,6 +876,76 @@ function stepBomber(s: GameState, t: Tuning, u: Unit, def: UnitTuning, colony: C
   events.push({ type: 'blast', x: tx, y: ty, radius, style: 'cannon' });
   u.cooldown = cooldownTicks;
   u.target = -1;
+}
+
+/**
+ * Gunship: hunts enemy units from the air. On the attack it flies at the target colony and
+ * rakes any of its units it finds on the way (or around that colony's tower); on Hold it
+ * guards home and goes after intruders. It never touches buildings.
+ */
+function stepGunship(
+  s: GameState,
+  t: Tuning,
+  u: Unit,
+  def: UnitTuning,
+  colony: Colony,
+  cooldownTicks: number,
+  blocks: Blocks,
+  intruders: Unit[],
+  events: SimEvent[],
+): void {
+  const w = s.width;
+  const range = def.range ?? 3;
+  // The nearest enemy ground unit it can see.
+  let prey: Unit | null = null;
+  let best = def.hunt ?? 8;
+  const consider = (o: Unit) => {
+    if (o.owner === u.owner || o.hp <= 0 || unitTuning(t, o.type).flies) return;
+    if (colony.order > 0 ? o.owner !== colony.order : false) return;
+    const d = dist(s, u.x, u.y, o.x, o.y);
+    if (d < best) {
+      best = d;
+      prey = o;
+    }
+  };
+  forEachNearby(blocks, u.x, u.y, best, consider);
+  if (!prey && colony.order === 0) for (const v of intruders) consider(v);
+  const target = prey as Unit | null;
+  const fly = (tx: number, ty: number, stopAt: number) => {
+    const dx = deltaX(s, u.x, tx);
+    const dy = deltaY(s, u.y, ty);
+    const d = Math.hypot(dx, dy);
+    if (d <= stopAt) return;
+    const stepLength = Math.min(d - stopAt, (def.speed * colony.mods.unitSpeed) / t.tickRate);
+    u.x += (dx / d) * stepLength;
+    u.y += (dy / d) * stepLength;
+    wrapPoint(s, u);
+    if (Math.abs(dx) > 0.01) u.facing = dx > 0 ? 1 : -1;
+  };
+  if (target) {
+    if (best <= range) {
+      if (u.cooldown === 0) {
+        target.hp -= def.damage * colony.mods.unitDamage * (unitTuning(t, target.type).armor ?? 1);
+        events.push({ type: 'shot', x0: u.x, y0: u.y - 0.9, x1: target.x, y1: target.y, owner: u.owner, style: 'gun' });
+        u.cooldown = cooldownTicks;
+      }
+      const toward = deltaX(s, u.x, target.x);
+      if (Math.abs(toward) > 0.01) u.facing = toward > 0 ? 1 : -1;
+      // Circle a little while firing, so it does not sit dead still.
+      fly(target.x, target.y, range * 0.7);
+      return;
+    }
+    fly(target.x, target.y, range * 0.7);
+    return;
+  }
+  const victim = colony.order > 0 ? s.colonies[colony.order - 1] : null;
+  if (victim && victim.alive) {
+    fly((victim.tower % w) + 1, ((victim.tower / w) | 0) + 1, 2);
+    return;
+  }
+  const homeX = u.home >= 0 ? (u.home % w) + 0.5 : (colony.tower % w) + 1;
+  const homeY = u.home >= 0 ? ((u.home / w) | 0) + 0.5 : ((colony.tower / w) | 0) + 1;
+  fly(homeX, homeY, 0.5);
 }
 
 /** The most valuable building of a colony: the dearest one; the Center Tower only when nothing else is left. */

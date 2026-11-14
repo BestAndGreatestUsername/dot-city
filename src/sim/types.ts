@@ -59,8 +59,24 @@ export const Kind = {
   AABattery: 44,
   PowerPlant: 45,
   MissileSilo: 46,
+  // A second wave of discoveries: more towers, armies, money and science.
+  Hex: 47,
+  Marksman: 48,
+  Railgun: 49,
+  Radar: 50,
+  NukeSilo: 51,
+  RamWorks: 52,
+  Arcanum: 53,
+  Guild: 54,
+  Helipad: 55,
+  LumberMill: 56,
+  Granary: 57,
+  Exchange: 58,
+  Alchemist: 59,
+  University: 60,
+  SpyDen: 61,
 } as const;
-export const KIND_COUNT = 47;
+export const KIND_COUNT = 62;
 
 /** The Center Tower is a 2x2 structure, so it is clearly the most important thing on the map. */
 export const TOWER_SIZE = 2;
@@ -84,6 +100,10 @@ export const UnitType = {
   Artillery: 12,
   Tank: 13,
   Bomber: 14,
+  Ram: 15,
+  Mage: 16,
+  Assassin: 17,
+  Gunship: 18,
 } as const;
 
 /** D1: "local" is the confirmed model; "pressure" exists only for comparison. */
@@ -141,6 +161,12 @@ export interface UnlockTuning {
   thorns?: number;
   /** Printing Press: share knocked off the science each discovery needs, per press (up to `cap`). */
   discount?: number;
+  /** Alchemist: gold it burns each second to make its science. */
+  upkeep?: number;
+  /** Hex Tower: the most health an enemy may have and still be bewitched. */
+  charmHp?: number;
+  /** Missile and nuke silos: seconds the warhead is in the air. */
+  flightSeconds?: number;
 }
 
 export interface UnitTuning {
@@ -198,6 +224,10 @@ export interface UnitTuning {
   aura?: number;
   auraDamage?: number;
   auraSpeed?: number;
+  /** Assassin: enemy towers only see it within this many squares. */
+  stealth?: number;
+  /** Ram: never fights units; it only batters squares. */
+  noFight?: boolean;
 }
 
 export interface Tuning {
@@ -407,6 +437,14 @@ export interface Mods {
   buildTime: number;
   /** Multiplier on the city's growth (the growth choice on a discovery card adds to it). */
   growth: number;
+  /** Multiplier on every building's price. */
+  cost: number;
+  /** Multiplier on what houses earn. */
+  houseGold: number;
+  /** Multiplier on how fast untouched squares repair themselves. */
+  regen: number;
+  /** Health every unit heals each second. */
+  unitRegen: number;
 }
 
 /** What a colony is not getting because some of its squares are cut off from the tower (D5). */
@@ -577,6 +615,8 @@ export interface GameState {
   airborne: boolean;
   /** The tick each square was last hit, for regeneration. */
   lastHit: Int32Array;
+  /** Missiles and nukes in the air: they land (and do their damage) on tick `land`. */
+  strikes: Strike[];
   colonies: Colony[];
 }
 
@@ -589,8 +629,24 @@ export type Command =
   /** Pay gold for a fresh research offer. */
   | { type: 'reroll'; owner: number };
 
-export type ShotStyle = 'bolt' | 'ballista' | 'lightning' | 'cannon' | 'arrow' | 'spear' | 'rock' | 'missile';
-export type BlastStyle = 'fire' | 'frost' | 'heal' | 'cannon';
+/** A warhead in flight, from a Missile Silo or a Nuke Silo. */
+export interface Strike {
+  owner: number;
+  /** The colony it was fired at. */
+  victim: number;
+  x0: number;
+  y0: number;
+  x: number;
+  y: number;
+  launch: number;
+  land: number;
+  radius: number;
+  damage: number;
+  nuke: boolean;
+}
+
+export type ShotStyle = 'bolt' | 'ballista' | 'lightning' | 'cannon' | 'arrow' | 'spear' | 'rock' | 'missile' | 'magic' | 'rail' | 'hex' | 'sniper' | 'gun';
+export type BlastStyle = 'fire' | 'frost' | 'heal' | 'cannon' | 'magic' | 'hex' | 'nuke';
 
 export type SimEvent =
   | { type: 'grow'; cell: number; owner: number; clearedForest: boolean }
@@ -608,6 +664,12 @@ export type SimEvent =
   | { type: 'age'; owner: number; age: number }
   /** A colony built the first Airfield: everyone learns Anti-Air. */
   | { type: 'airborne'; owner: number }
+  /** A warhead left its silo; it lands `ticks` later at (x, y). */
+  | { type: 'launch'; owner: number; victim: number; x: number; y: number; nuke: boolean }
+  /** A nuke went off. */
+  | { type: 'nuke'; owner: number; victim: number; x: number; y: number }
+  /** A Hex Tower bewitched an enemy unit: it now fights for `owner`. */
+  | { type: 'charm'; owner: number; from: number; x: number; y: number }
   /** The ground itself changed (a sapper blasted a mountain away). */
   | { type: 'terrain'; cell: number }
   /** A unit was cut by the Thorn Wall it struck. */

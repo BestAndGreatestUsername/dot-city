@@ -79,14 +79,19 @@ interface Seen {
   lungeStart: number;
   lungeX: number;
   lungeY: number;
+  /** The health bar's fading "just lost" chunk, as a share of full health. */
+  trail: number;
 }
 /** How long each kind of shot takes to fly, in milliseconds. */
-const SHOT_MS: Record<ShotStyle, number> = { bolt: 140, arrow: 160, ballista: 200, spear: 240, lightning: 170, cannon: 340, rock: 400, missile: 1300 };
+const SHOT_MS: Record<ShotStyle, number> = { bolt: 150, arrow: 220, ballista: 220, spear: 260, lightning: 170, cannon: 380, rock: 440, missile: 1300, magic: 320, rail: 300, hex: 420, sniper: 160, gun: 110 };
 /** How long each kind of blast lasts. */
-const BLAST_MS: Record<BlastStyle, number> = { fire: 320, frost: 420, heal: 560, cannon: 420 };
+const BLAST_MS: Record<BlastStyle, number> = { fire: 320, frost: 420, heal: 560, cannon: 460, magic: 380, hex: 620, nuke: 2800 };
 
 /** How often a block of farms shows what it earned. */
 const HARVEST_MS = 8000;
+
+/** Buildings that reach a square area around them: their area is outlined when placed or hovered. */
+const AREA_KINDS: number[] = [Kind.Factory, Kind.PowerPlant, Kind.Plaza, Kind.Radar, Kind.Granary, Kind.University, Kind.Market];
 
 export class Renderer {
   readonly sprites: SpriteSet = buildSprites();
@@ -121,6 +126,15 @@ export class Renderer {
   private camY = 0;
   /** Until when the screen edges flash red (the player's tower was hit). */
   private alarmUntil = 0;
+  /** A nuke's white flash over the whole screen. */
+  private whiteStart = 0;
+  private whiteUntil = 0;
+  /** Health bars' "just lost" chunks for squares, as a share of full health. */
+  private cellTrail = new Map<number, number>();
+  /** When the simulation last ticked, and how long a tick takes: warheads glide between ticks. */
+  private tickSeen = -1;
+  private tickAt = 0;
+  private tickMs = 100;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -150,6 +164,7 @@ export class Renderer {
     this.particles = [];
     this.floaters = [];
     this.seen.clear();
+    this.cellTrail.clear();
     const w = state.width * TILE;
     const h = state.height * TILE;
     const layer = () => {
@@ -382,7 +397,9 @@ export class Renderer {
         case 'shot': {
           const style = e.style ?? 'bolt';
           this.shots.push({ start: now, style, x0: e.x0, y0: e.y0, x1: e.x1, y1: e.y1 });
-          if (style === 'cannon' || style === 'rock') landing.set(`${e.x1.toFixed(2)},${e.y1.toFixed(2)}`, SHOT_MS[style]);
+          if (style === 'cannon' || style === 'rock' || style === 'magic') landing.set(`${e.x1.toFixed(2)},${e.y1.toFixed(2)}`, SHOT_MS[style]);
+          if (style === 'rail') this.burst(e.x0, e.y0 - 0.3, 6, [PAL.science, PAL.scienceLight, '#ffffff'], now, 1.6, 0);
+          if (style === 'sniper') this.burst(e.x1, e.y1, 3, [PAL.paper, PAL.bad], now, 1.4, 1);
           if (style === 'lightning') this.burst(e.x1, e.y1, 4, [PAL.spark, '#ffffff'], now, 2, 0);
           break;
         }
@@ -394,6 +411,20 @@ export class Renderer {
             this.shake(now + delay, e.radius >= 1.5 ? 2 : 1, 180, e.x, e.y);
           } else if (e.style === 'heal') {
             this.burst(e.x, e.y, 4, [PAL.holy, PAL.holyLight], now, 0.8, -0.6);
+          } else if (e.style === 'magic') {
+            this.burst(e.x, e.y, 10, [PAL.void, '#ffd6ff', PAL.voidDark], now + delay, 2, -0.3);
+          } else if (e.style === 'hex') {
+            this.burst(e.x, e.y, 10, [PAL.holy, PAL.holyLight, PAL.void], now, 1.4, -0.8);
+          } else if (e.style === 'nuke') {
+            this.burst(e.x, e.y, 60, [PAL.fireLight, PAL.fire, '#ffffff', PAL.rockMid, PAL.rockDark], now, 7, 0.6);
+            this.shake(now, 3, 1100, e.x, e.y);
+            const sx = this.wx(e.x) * TILE * this.zoom - this.originX();
+            const sy = this.wy(e.y) * TILE * this.zoom - this.originY();
+            const margin = this.canvas.width * 0.5;
+            if (sx > -margin && sy > -margin && sx < this.canvas.width + margin && sy < this.canvas.height + margin) {
+              this.whiteStart = now;
+              this.whiteUntil = now + 650;
+            }
           }
           break;
         }
@@ -409,6 +440,15 @@ export class Renderer {
         }
         case 'terrain':
           this.paintTerrain(e.cell);
+          break;
+        case 'launch': {
+          // Smoke billows from the silo as the warhead leaves.
+          const strike = this.state.strikes[this.state.strikes.length - 1];
+          if (strike) this.burst(strike.x0, strike.y0, e.nuke ? 24 : 12, [PAL.stoneLight, PAL.paper, PAL.fireLight], now, e.nuke ? 2.4 : 1.6, -0.4);
+          break;
+        }
+        case 'charm':
+          this.floaters.push({ x: e.x, y: e.y - 0.7, text: 'BEWITCHED!', color: PAL.holy, start: now, life: 1100 });
           break;
         case 'thorns': {
           // Cut on a Thorn Wall: a spray of red.
@@ -549,6 +589,45 @@ export class Renderer {
     g.fillRect(x, y, Math.max(0, Math.round(width * Math.min(1, share))), t);
   }
 
+  /**
+   * A health bar: a dark frame, the health left in green, gold or red (with a light top edge and
+   * a darker bottom), a pale chunk showing what was just lost, and notches every quarter. Below a
+   * quarter it blinks. Big bars (Center Towers) get a frame in the colony's colour.
+   */
+  private healthBar(now: number, x: number, y: number, width: number, share: number, trail: number, big: boolean, frame?: string): void {
+    const g = this.ctx;
+    const z = this.zoom;
+    const h = Math.max(3, Math.round(z * (big ? 1.5 : 1)));
+    x = Math.round(x);
+    y = Math.round(y);
+    width = Math.max(4, Math.round(width));
+    const fill = Math.round(width * Math.min(1, Math.max(0, share)));
+    const lost = Math.round(width * Math.min(1, Math.max(share, trail)));
+    g.fillStyle = PAL.ink;
+    g.fillRect(x - 1, y - 1, width + 2, h + 2);
+    if (frame) {
+      g.fillStyle = frame;
+      g.fillRect(x - 1, y - 2, width + 2, 1);
+    }
+    g.fillStyle = '#2b1a26';
+    g.fillRect(x, y, width, h);
+    if (lost > fill) {
+      g.fillStyle = '#fff0c8';
+      g.fillRect(x + fill, y, lost - fill, h);
+    }
+    const blink = share < 0.25 && Math.floor(now / 220) % 2 === 0;
+    const main = blink ? '#ffb4a8' : share > 0.6 ? PAL.good : share > 0.3 ? PAL.gold : PAL.bad;
+    const dark = share > 0.6 ? '#3c9440' : share > 0.3 ? PAL.goldDark : '#a63434';
+    g.fillStyle = dark;
+    g.fillRect(x, y, fill, h);
+    g.fillStyle = main;
+    g.fillRect(x, y, fill, h - Math.max(1, Math.round(h / 3)));
+    g.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    g.fillRect(x, y, Math.max(0, fill - 1), 1);
+    g.fillStyle = 'rgba(18, 19, 31, 0.6)';
+    for (let q = 1; q < 4; q++) g.fillRect(x + Math.round((width * q) / 4), y, 1, h);
+  }
+
   /** A bouncing downward chevron: "this one". */
   private marker(now: number, x: number, y: number, color: string): void {
     const g = this.ctx;
@@ -571,6 +650,12 @@ export class Renderer {
     const z = this.zoom;
     const size = TILE * z;
     const [shakeX, shakeY] = this.shakeOffset(now);
+    // The tick clock: how far between two simulation ticks this frame is.
+    if (s.tick !== this.tickSeen) {
+      if (this.tickSeen >= 0 && s.tick === this.tickSeen + 1) this.tickMs = Math.min(400, Math.max(16, this.tickMs * 0.8 + (now - this.tickAt) * 0.2));
+      this.tickSeen = s.tick;
+      this.tickAt = now;
+    }
     this.clampCamera();
     this.camX = this.cx / TILE;
     this.camY = this.cy / TILE;
@@ -671,6 +756,7 @@ export class Renderer {
     this.drawUnits(now, size, ox, oy, onScreen);
 
     this.drawBeams(now, size, ox, oy);
+    this.drawStrikes(now, size, ox, oy);
 
     // Everything in flight.
     let keptShots = 0;
@@ -701,12 +787,20 @@ export class Renderer {
       }
       const x = cellX(c);
       const y = cellY(c);
-      if (onScreen(x, y)) this.bar(x + z, y + z, size - 2 * z, s.hp[c] / full, PAL.good);
+      const share = Math.max(0, s.hp[c] / full);
+      const trail = Math.max(share, (this.cellTrail.get(c) ?? share) - 0.01);
+      this.cellTrail.set(c, trail);
+      if (onScreen(x, y)) this.healthBar(now, x + z, y - z, size - 2 * z, share, trail, false);
     }
+    for (const c of this.cellTrail.keys()) if (!this.damaged.has(c)) this.cellTrail.delete(c);
     for (const colony of s.colonies) {
       const full = towerMaxHealth(t, colony);
       if (!colony.alive || colony.towerHp >= full) continue;
-      this.bar(cellX(colony.tower), cellY(colony.tower) + 2 * size + z, 2 * size, colony.towerHp / full, PAL.good);
+      const share = Math.max(0, colony.towerHp / full);
+      const key = -colony.id;
+      const trail = Math.max(share, (this.cellTrail.get(key) ?? share) - 0.004);
+      this.cellTrail.set(key, trail);
+      this.healthBar(now, cellX(colony.tower) - z, cellY(colony.tower) + 2 * size + z, 2 * size + 2 * z, share, trail, true, COLONY[(colony.id - 1) % COLONY.length].main);
     }
 
     // Markers: home is always easy to find, and so is whoever you are attacking.
@@ -716,6 +810,12 @@ export class Renderer {
     if (target && target.alive) this.marker(now, cellX(target.tower) + size, cellY(target.tower), PAL.bad);
 
     this.drawVignette();
+    if (now < this.whiteUntil) {
+      g.globalAlpha = 0.85 * ((this.whiteUntil - now) / Math.max(1, this.whiteUntil - this.whiteStart));
+      g.fillStyle = '#fffbe8';
+      g.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      g.globalAlpha = 1;
+    }
     this.drawAlarm(performance.now());
     this.drawLandmarks(now, size, ox, oy);
     this.drawThreats(now, size, ox, oy);
@@ -912,7 +1012,7 @@ export class Renderer {
       alive.add(u.id);
       let seen = this.seen.get(u.id);
       if (!seen) {
-        seen = { x: u.x, y: u.y, hp: u.hp, flashUntil: 0, movedAt: 0, lungeStart: 0, lungeX: 0, lungeY: 0 };
+        seen = { x: u.x, y: u.y, hp: u.hp, flashUntil: 0, movedAt: 0, lungeStart: 0, lungeX: 0, lungeY: 0, trail: 1 };
         this.seen.set(u.id, seen);
         // A new recruit arrives in a puff of its colony's colour.
         const team = COLONY[(u.owner - 1) % COLONY.length];
@@ -935,7 +1035,9 @@ export class Renderer {
       const step = walking && (Math.floor(now / 130) + u.id) % 2 === 1;
       const sprite = (step ? team.unitsWalk : team.units)[u.type][facing];
       const giant = u.type === UnitType.Giant;
-      const flying = u.type === UnitType.Bomber;
+      const flying = unitTuning(this.tuning, u.type).flies === true;
+      // Assassins: barely visible, to their enemies most of all.
+      const sneaky = u.type === UnitType.Assassin ? (u.owner === this.player ? 0.7 : 0.45) : 1;
       const unitSize = sprite.width * z * (giant ? 1.5 : u.type === UnitType.Tank ? 1.2 : 1);
       // Aircraft fly high above their shadow.
       const lift = flying ? Math.round(size * 0.9 + Math.sin(now / 240 + u.id) * z) : 0;
@@ -967,7 +1069,15 @@ export class Renderer {
       g.fillStyle = 'rgba(18, 19, 31, 0.32)';
       g.fillRect(Math.round(cx - unitSize * 0.35), Math.round(feet - z), Math.round(unitSize * 0.7), z * (giant ? 2 : 1));
 
+      g.globalAlpha = sneaky;
       g.drawImage(sprite, x, y - bob - lift, unitSize, unitSize);
+      g.globalAlpha = 1;
+      if (u.type === UnitType.Gunship) {
+        // Rotor: a blur that flickers between two lengths.
+        const spin = Math.floor(now / 50) % 2;
+        g.fillStyle = 'rgba(244, 236, 216, 0.75)';
+        g.fillRect(Math.round(cx - unitSize * (spin ? 0.55 : 0.4)), Math.round(y - bob - lift - z), Math.round(unitSize * (spin ? 1.1 : 0.8)), z);
+      }
       if (now < seen.flashUntil) {
         g.globalAlpha = 0.85;
         g.drawImage(team.unitsFlash[u.type][facing], x, y - bob, unitSize, unitSize);
@@ -982,17 +1092,11 @@ export class Renderer {
       }
       // Health, once it has been hurt.
       const full = unitMaxHp(this.tuning, s.colonies[u.owner - 1], u.type);
+      const share = Math.max(0, u.hp / full);
+      seen.trail = Math.max(share, seen.trail - 0.012);
       if (u.hp < full - 0.01) {
-        const w = Math.round(unitSize * 0.8);
-        const bx = Math.round(cx - w / 2);
-        const by = y - bob - 2 * z;
-        const h = Math.max(1, Math.round(z * 0.75));
-        g.fillStyle = PAL.ink;
-        g.fillRect(bx - 1, by - 1, w + 2, h + 2);
-        g.fillStyle = '#4a1f28';
-        g.fillRect(bx, by, w, h);
-        g.fillStyle = u.hp / full > 0.5 ? PAL.good : u.hp / full > 0.25 ? PAL.gold : PAL.bad;
-        g.fillRect(bx, by, Math.max(0, Math.round((w * u.hp) / full)), h);
+        const w = Math.max(6, Math.round(unitSize * 0.9));
+        this.healthBar(now, cx - w / 2, y - bob - lift - 3 * z, w, share, seen.trail, false);
       }
     }
     for (const id of this.seen.keys()) if (!alive.has(id)) this.seen.delete(id);
@@ -1198,6 +1302,22 @@ export class Renderer {
     g.globalAlpha = 1;
   }
 
+  /** A filled pixel ellipse, built from rows of blocks: round fireballs and puffs of smoke. */
+  private disk(cx: number, cy: number, rx: number, ry: number, block: number, color: string): void {
+    const g = this.ctx;
+    g.fillStyle = color;
+    if (rx < block || ry < block) {
+      g.fillRect(Math.round(cx - block / 2), Math.round(cy - block / 2), block, block);
+      return;
+    }
+    for (let y = -ry; y <= ry; y += block) {
+      const k = 1 - (y * y) / (ry * ry);
+      if (k <= 0) continue;
+      const half = Math.round((rx * Math.sqrt(k)) / block) * block;
+      g.fillRect(Math.round(cx - half), Math.round(cy + y), 2 * half, block);
+    }
+  }
+
   /** A line of pixel blocks between two screen points. */
   private pixelLine(x0: number, y0: number, x1: number, y1: number, block: number, color: string): void {
     const g = this.ctx;
@@ -1219,20 +1339,41 @@ export class Renderer {
     const ex = (x0 + deltaX(this.state, shot.x0, shot.x1)) * size - ox;
     const ey = (y0 + deltaY(this.state, shot.y0, shot.y1)) * size - oy;
     const along = (q: number): [number, number] => [sx + (ex - sx) * q, sy + (ey - sy) * q];
+    const half = Math.max(1, Math.floor(z / 2));
     switch (shot.style) {
-      case 'bolt':
+      case 'bolt': {
+        // A crossbow bolt: a pale streak with a bright point.
+        const [hx, hy] = along(p);
+        const [tx, ty] = along(Math.max(0, p - 0.28));
+        g.globalAlpha = 0.55;
+        this.pixelLine(tx, ty, hx, hy, half, PAL.paper);
+        g.globalAlpha = 1;
+        g.fillStyle = '#ffffff';
+        g.fillRect(Math.round(hx - z / 2), Math.round(hy - z / 2), z, z);
+        break;
+      }
       case 'arrow': {
-        g.fillStyle = shot.style === 'bolt' ? PAL.paper : PAL.wallShade;
-        for (let i = 0; i < 3; i++) {
-          const [x, y] = along(Math.max(0, p - i * 0.08));
-          g.fillRect(Math.round(x - z / 2), Math.round(y - z / 2), z, z);
-        }
+        // An arrow on a shallow arc: wooden shaft, stone tip, white fletching.
+        const lift = (q: number) => Math.sin(q * Math.PI) * size * 0.45;
+        const [hx, hy0] = along(p);
+        const [tx, ty0] = along(Math.max(0, p - 0.14));
+        const hy = hy0 - lift(p);
+        const ty = ty0 - lift(Math.max(0, p - 0.14));
+        this.pixelLine(tx, ty, hx, hy, half, PAL.trunk);
+        g.fillStyle = PAL.stoneLight;
+        g.fillRect(Math.round(hx - half), Math.round(hy - half), 2 * half, 2 * half);
+        g.fillStyle = PAL.paper;
+        g.fillRect(Math.round(tx - half), Math.round(ty - half), half, half);
         break;
       }
       case 'ballista': {
-        // A heavy bolt: a long dark shaft with a bright head.
+        // A heavy bolt: a long dark shaft with a bright head and a white wake.
         const [hx, hy] = along(p);
-        const [tx, ty] = along(Math.max(0, p - 0.18));
+        const [tx, ty] = along(Math.max(0, p - 0.2));
+        const [wx, wy] = along(Math.max(0, p - 0.45));
+        g.globalAlpha = 0.35;
+        this.pixelLine(wx, wy, tx, ty, half, PAL.paper);
+        g.globalAlpha = 1;
         this.pixelLine(tx, ty, hx, hy, z, PAL.trunk);
         g.fillStyle = PAL.paper;
         g.fillRect(Math.round(hx - z), Math.round(hy - z), 2 * z, 2 * z);
@@ -1242,44 +1383,238 @@ export class Renderer {
         // A streak that flies the whole line, piercing everything on it.
         const [hx, hy] = along(p);
         const [tx, ty] = along(Math.max(0, p - 0.3));
+        g.globalAlpha = 0.4;
+        this.pixelLine(...along(Math.max(0, p - 0.5)), tx, ty, half, PAL.paper);
+        g.globalAlpha = 1;
         this.pixelLine(tx, ty, hx, hy, z, PAL.wall);
         g.fillStyle = PAL.stoneLight;
         g.fillRect(Math.round(hx - z), Math.round(hy - z), 2 * z, 2 * z);
         break;
       }
       case 'lightning': {
-        // A jagged bolt that flickers between two shapes.
+        // A jagged bolt that flickers between two shapes, with a glow round it.
         const flicker = Math.floor(now / 50) % 2;
         let px = sx;
         let py = sy;
-        const segments = 5;
+        const segments = 6;
+        g.globalAlpha = 1 - p * 0.6;
         for (let i = 1; i <= segments; i++) {
           const k = i / segments;
           const jitter = i === segments ? 0 : (hash2(shot.start + flicker, i, 7) - 0.5) * size * 0.9;
           const nx = sx + (ex - sx) * k + jitter * ((ey - sy) / (Math.hypot(ex - sx, ey - sy) || 1));
           const ny = sy + (ey - sy) * k - jitter * ((ex - sx) / (Math.hypot(ex - sx, ey - sy) || 1));
+          this.pixelLine(px, py, nx, ny, Math.max(3, 2 * z), 'rgba(255, 243, 106, 0.25)');
           this.pixelLine(px, py, nx, ny, Math.max(2, z), PAL.spark);
-          this.pixelLine(px, py, nx, ny, Math.max(1, Math.floor(z / 2)), '#ffffff');
+          this.pixelLine(px, py, nx, ny, half, '#ffffff');
           px = nx;
           py = ny;
         }
+        g.globalAlpha = 1;
+        break;
+      }
+      case 'magic': {
+        // A fireball of violet light on a gentle arc, trailing sparks.
+        const lift = (q: number) => Math.sin(q * Math.PI) * size * 0.6;
+        for (let i = 4; i >= 1; i--) {
+          const q = Math.max(0, p - i * 0.06);
+          const [qx, qy] = along(q);
+          g.globalAlpha = 0.6 * (1 - i / 5);
+          g.fillStyle = i % 2 ? PAL.void : '#ffd6ff';
+          g.fillRect(Math.round(qx - half), Math.round(qy - lift(q) - half), 2 * half, 2 * half);
+        }
+        g.globalAlpha = 1;
+        const [hx, hy0] = along(p);
+        const hy = hy0 - lift(p);
+        const pulse = Math.floor(now / 70) % 2;
+        g.fillStyle = 'rgba(192, 108, 255, 0.35)';
+        g.fillRect(Math.round(hx - 2.5 * z), Math.round(hy - 2.5 * z), 5 * z, 5 * z);
+        g.fillStyle = PAL.void;
+        g.fillRect(Math.round(hx - 1.5 * z), Math.round(hy - 1.5 * z), 3 * z, 3 * z);
+        g.fillStyle = pulse ? '#ffffff' : '#ffd6ff';
+        g.fillRect(Math.round(hx - z / 2), Math.round(hy - z / 2), z, z);
+        break;
+      }
+      case 'hex': {
+        // A spiral of green motes winding towards its victim.
+        const len = Math.hypot(ex - sx, ey - sy) || 1;
+        const nx = -(ey - sy) / len;
+        const ny = (ex - sx) / len;
+        for (let i = 0; i < 7; i++) {
+          const q = Math.max(0, p - i * 0.05);
+          const [qx, qy] = along(q);
+          const swirl = Math.sin(q * 14 + i) * size * 0.35 * (1 - q * 0.5);
+          g.globalAlpha = 1 - i / 8;
+          g.fillStyle = i % 2 ? PAL.holy : PAL.holyLight;
+          g.fillRect(Math.round(qx + nx * swirl - half), Math.round(qy + ny * swirl - half), 2 * half, 2 * half);
+        }
+        g.globalAlpha = 1;
+        break;
+      }
+      case 'sniper': {
+        // A crack and a hair-thin tracer straight to the target, fading fast.
+        const reach = Math.min(1, p * 4);
+        const [hx, hy] = along(reach);
+        g.globalAlpha = 1 - p;
+        this.pixelLine(sx, sy, hx, hy, half, PAL.paper);
+        g.fillStyle = '#ffffff';
+        g.fillRect(Math.round(hx - z / 2), Math.round(hy - z / 2), z, z);
+        if (p < 0.25) {
+          g.fillStyle = PAL.fireLight;
+          g.fillRect(Math.round(sx - z), Math.round(sy - z), 2 * z, 2 * z);
+        }
+        g.globalAlpha = 1;
+        break;
+      }
+      case 'rail': {
+        // An instant beam down the whole line: wide and blinding, then thinning out.
+        const fade = 1 - p;
+        const wide = Math.max(1, Math.round(z * 3 * fade));
+        g.globalAlpha = 0.35 * fade;
+        this.pixelLine(sx, sy, ex, ey, wide + 2 * z, PAL.science);
+        g.globalAlpha = fade;
+        this.pixelLine(sx, sy, ex, ey, Math.max(1, wide), PAL.scienceLight);
+        this.pixelLine(sx, sy, ex, ey, Math.max(1, Math.round(wide / 2)), '#ffffff');
+        g.globalAlpha = 1;
+        // Rings ripple along it.
+        for (let i = 1; i < 6; i++) {
+          const [rx, ry] = along(i / 6);
+          this.ring(rx, ry, size * (0.2 + p * 0.5), z, PAL.science, 0.5 * fade);
+        }
+        break;
+      }
+      case 'gun': {
+        // A short yellow tracer.
+        const [hx, hy] = along(p);
+        const [tx, ty] = along(Math.max(0, p - 0.35));
+        this.pixelLine(tx, ty, hx, hy, half, PAL.spark);
         break;
       }
       case 'cannon':
       case 'missile':
       case 'rock': {
-        // A shell or boulder on an arc, with its shadow on the ground. A missile climbs high.
-        const [x, y] = along(p);
-        const lift = Math.sin(p * Math.PI) * size * (shot.style === 'rock' ? 2.2 : shot.style === 'missile' ? 6 : 1.4);
+        // A shell or boulder on an arc, with its shadow on the ground and a puff of smoke behind.
+        const height = shot.style === 'rock' ? 2.2 : shot.style === 'missile' ? 6 : 1.4;
+        const lift = (q: number) => Math.sin(q * Math.PI) * size * height;
         const r = shot.style === 'rock' ? 3 * z : 2 * z;
+        const [x, y] = along(p);
         g.fillStyle = 'rgba(18, 19, 31, 0.35)';
         g.fillRect(Math.round(x - r / 2), Math.round(y - z / 2), r, z);
+        if (shot.style !== 'rock') {
+          for (let i = 1; i <= 4; i++) {
+            const q = Math.max(0, p - i * 0.07);
+            const [qx, qy] = along(q);
+            const b = Math.max(z, Math.round(z * (0.8 + i * 0.4)));
+            g.globalAlpha = 0.45 * (1 - i / 5);
+            g.fillStyle = PAL.stoneLight;
+            g.fillRect(Math.round(qx - b / 2), Math.round(qy - lift(q) - b / 2), b, b);
+          }
+          g.globalAlpha = 1;
+        }
+        const top = Math.round(y - lift(p) - r / 2);
+        const left = Math.round(x - r / 2);
+        g.fillStyle = PAL.ink;
+        g.fillRect(left - 1, top - 1, r + 2, r + 2);
         g.fillStyle = shot.style === 'rock' ? PAL.rockMid : PAL.metal;
-        g.fillRect(Math.round(x - r / 2), Math.round(y - lift - r / 2), r, r);
-        g.fillStyle = shot.style === 'rock' ? PAL.rockLight : PAL.stoneMid;
-        g.fillRect(Math.round(x - r / 2), Math.round(y - lift - r / 2), z, z);
+        g.fillRect(left, top, r, r);
+        // A highlight that tumbles round as it flies.
+        const spin = Math.floor(p * 8) % 4;
+        g.fillStyle = shot.style === 'rock' ? PAL.rockLight : PAL.stoneLight;
+        g.fillRect(left + (spin === 1 || spin === 2 ? r - z : 0), top + (spin >= 2 ? r - z : 0), z, z);
         break;
       }
+    }
+  }
+
+  /**
+   * Missiles and nukes in the air, drawn from the simulation so they land exactly when they hit:
+   * a target marker on the ground (growing more solid as the warhead nears), and the warhead
+   * itself climbing, arcing and plunging, with a flame and a trail of smoke.
+   */
+  private drawStrikes(now: number, size: number, ox: number, oy: number): void {
+    const s = this.state;
+    if (s.strikes.length === 0) return;
+    const g = this.ctx;
+    const z = this.zoom;
+    const frac = Math.min(1, Math.max(0, (now - this.tickAt) / this.tickMs));
+    for (const st of s.strikes) {
+      const p = Math.max(0, Math.min(1, (s.tick + frac - st.launch) / Math.max(1, st.land - st.launch)));
+      const tx = this.wx(st.x) * size - ox;
+      const ty = this.wy(st.y) * size - oy;
+      const color = st.nuke ? PAL.gold : PAL.bad;
+      // The target marker: a shrinking ring and a blinking crosshair.
+      const blink = Math.floor(now / (st.nuke ? 140 : 200)) % 2 === 0;
+      this.ring(tx, ty, st.radius * size * (1.15 - 0.3 * p), z, color, 0.3 + 0.5 * p);
+      if (st.nuke) this.ring(tx, ty, st.radius * size * 0.55, z, PAL.ink, 0.4 + 0.4 * p);
+      const arm = Math.round(size * 0.7);
+      const gap = Math.round(size * 0.25);
+      g.globalAlpha = blink ? 1 : 0.55;
+      g.fillStyle = PAL.ink;
+      g.fillRect(Math.round(tx - arm) - 1, Math.round(ty - z / 2) - 1, arm - gap + 2, z + 2);
+      g.fillRect(Math.round(tx + gap) - 1, Math.round(ty - z / 2) - 1, arm - gap + 2, z + 2);
+      g.fillRect(Math.round(tx - z / 2) - 1, Math.round(ty - arm) - 1, z + 2, arm - gap + 2);
+      g.fillRect(Math.round(tx - z / 2) - 1, Math.round(ty + gap) - 1, z + 2, arm - gap + 2);
+      g.fillStyle = color;
+      g.fillRect(Math.round(tx - arm), Math.round(ty - z / 2), arm - gap, z);
+      g.fillRect(Math.round(tx + gap), Math.round(ty - z / 2), arm - gap, z);
+      g.fillRect(Math.round(tx - z / 2), Math.round(ty - arm), z, arm - gap);
+      g.fillRect(Math.round(tx - z / 2), Math.round(ty + gap), z, arm - gap);
+      g.globalAlpha = 1;
+
+      // The warhead.
+      const x0 = this.wx(st.x0);
+      const y0 = this.wy(st.y0);
+      const sx = x0 * size - ox;
+      const sy = y0 * size - oy;
+      const ex = (x0 + deltaX(s, st.x0, st.x)) * size - ox;
+      const ey = (y0 + deltaY(s, st.y0, st.y)) * size - oy;
+      const height = size * (st.nuke ? 10 : 7);
+      const at = (q: number): [number, number] => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * height];
+      // Smoke behind it, oldest and widest last.
+      for (let i = 12; i >= 1; i--) {
+        const q = p - i * 0.022;
+        if (q < 0) continue;
+        const [qx, qy] = at(q);
+        const b = Math.max(z, Math.round(z * (1 + i * 0.35)));
+        g.globalAlpha = 0.55 * (1 - i / 13);
+        g.fillStyle = i <= 2 ? PAL.fireLight : i <= 4 ? PAL.paper : PAL.stoneLight;
+        g.fillRect(Math.round(qx - b / 2), Math.round(qy - b / 2), b, b);
+      }
+      g.globalAlpha = 1;
+      const [hx, hy] = at(p);
+      const [bx0, by0] = at(Math.max(0, p - 0.02));
+      const dx = hx - bx0;
+      const dy = hy - by0;
+      const len = Math.hypot(dx, dy) || 1;
+      const body = (st.nuke ? 7 : 5) * z;
+      const bx = hx - (dx / len) * body;
+      const by = hy - (dy / len) * body;
+      const thick = Math.max(3, Math.round(z * (st.nuke ? 2.6 : 1.8)));
+      // A soft halo, so it stands out against forest and city alike.
+      g.fillStyle = Math.floor(now / 120) % 2 === 0 ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 107, 107, 0.3)';
+      g.fillRect(Math.round((bx + hx) / 2 - body * 0.7), Math.round((by + hy) / 2 - body * 0.7), Math.round(body * 1.4), Math.round(body * 1.4));
+      const flame = Math.floor(now / 50) % 2 === 0;
+      const fl = (flame ? 3 : 2.2) * z * (st.nuke ? 1.3 : 1);
+      g.fillStyle = PAL.fire;
+      g.fillRect(Math.round(bx - fl / 2), Math.round(by - fl / 2), Math.round(fl), Math.round(fl));
+      g.fillStyle = flame ? '#ffffff' : PAL.fireLight;
+      g.fillRect(Math.round(bx - fl / 4), Math.round(by - fl / 4), Math.round(fl / 2), Math.round(fl / 2));
+      this.pixelLine(bx, by, hx, hy, thick + 2, PAL.ink);
+      this.pixelLine(bx, by, hx, hy, thick, st.nuke ? PAL.gold : PAL.paper);
+      if (st.nuke) {
+        // Black bands on the yellow body.
+        for (const k of [0.35, 0.65]) {
+          g.fillStyle = PAL.ink;
+          g.fillRect(Math.round(bx + (hx - bx) * k - z / 2), Math.round(by + (hy - by) * k - z / 2), z, z);
+        }
+      }
+      const nose = Math.round(z * (st.nuke ? 2.6 : 2));
+      g.fillStyle = st.nuke ? PAL.ink : PAL.bad;
+      g.fillRect(Math.round(hx - nose / 2), Math.round(hy - nose / 2), nose, nose);
+      // Its shadow, sliding over the ground.
+      const gx = sx + (ex - sx) * p;
+      const gy = sy + (ey - sy) * p;
+      g.fillStyle = 'rgba(18, 19, 31, 0.3)';
+      g.fillRect(Math.round(gx - z), Math.round(gy - z / 2), 2 * z, z);
     }
   }
 
@@ -1319,6 +1654,72 @@ export class Renderer {
           g.fillRect(x - 3 * z, y - z, 6 * z, 2 * z);
           g.globalAlpha = 1;
         }
+        break;
+      }
+      case 'magic': {
+        // A violet burst: a flash, then a ring of sparks flying out.
+        if (p < 0.2) {
+          const r = radius * (0.5 + p * 2.5);
+          g.fillStyle = '#ffd6ff';
+          g.fillRect(Math.round(cx - r / 2), Math.round(cy - r / 2), Math.round(r), Math.round(r));
+        }
+        this.ring(cx, cy, radius * (0.3 + 0.7 * p), Math.max(z, Math.round((1 - p) * 2) * z), PAL.void, 1 - p);
+        this.ring(cx, cy, radius * (0.15 + 0.5 * p), z, '#ffd6ff', (1 - p) * 0.7);
+        break;
+      }
+      case 'hex': {
+        // Green runes circling the bewitched unit, rising.
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + p * 5;
+          const d = radius * size * 0 + radius * (0.4 + 0.6 * (1 - p));
+          const x = Math.round(cx + Math.cos(a) * d);
+          const y = Math.round(cy + Math.sin(a) * d * 0.6 - p * size * 0.8);
+          g.globalAlpha = 1 - p;
+          g.fillStyle = i % 2 ? PAL.holy : PAL.void;
+          g.fillRect(x - z, y - z, 2 * z, 2 * z);
+        }
+        g.globalAlpha = 1;
+        break;
+      }
+      case 'nuke': {
+        // A blinding round fireball, a shockwave racing out, and a mushroom cloud that climbs,
+        // darkens from fire to smoke, and drifts away.
+        const b = Math.max(2, 2 * z);
+        const seed = Math.floor(e.start);
+        if (p < 0.55) {
+          const r1 = radius * (0.35 + Math.min(1, p * 5) * 0.65);
+          g.globalAlpha = Math.min(1, 1.5 - p * 2.6);
+          this.disk(cx, cy, r1, r1 * 0.8, b, p < 0.1 ? '#ffffff' : PAL.fire);
+          this.disk(cx, cy, r1 * 0.72, r1 * 0.58, b, p < 0.2 ? '#ffffff' : PAL.fireLight);
+          this.disk(cx, cy, r1 * 0.38, r1 * 0.3, b, '#ffffff');
+          g.globalAlpha = 1;
+        }
+        this.ring(cx, cy, radius * (0.4 + p * 2.2), Math.max(z, Math.round((1 - p) * 4) * z), PAL.paper, Math.max(0, 0.9 - p));
+        this.ring(cx, cy, radius * (0.3 + p * 1.6), Math.max(z, Math.round((1 - p) * 3) * z), PAL.fire, Math.max(0, 0.7 - p));
+        const rise = Math.min(1, p * 1.5);
+        const capY = cy - rise * size * 7;
+        const capR = size * (1.4 + rise * 2.8);
+        const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+        const hot = p < 0.3;
+        const warm = p < 0.55;
+        g.globalAlpha = 0.9 * fade;
+        // The stem: a column of puffs, narrowing as it climbs.
+        for (let k = 0; k <= 6; k++) {
+          const q = k / 6;
+          const py = cy + (capY - cy) * q;
+          const pr = size * (1.1 - 0.45 * q);
+          this.disk(cx + (hash2(seed, k, 5) - 0.5) * size * 0.3, py, pr, pr * 0.8, b, hot ? PAL.fire : warm ? PAL.rockLight : PAL.rockMid);
+        }
+        // The cap: a ring of overlapping puffs around a bright (then sooty) heart.
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2;
+          const pr = capR * (0.4 + 0.2 * hash2(seed, i, 13));
+          const px = cx + Math.cos(a) * capR * 0.6;
+          const py = capY + Math.sin(a) * capR * 0.28;
+          this.disk(px, py, pr, pr * 0.75, b, hot ? (i % 2 ? PAL.fire : PAL.fireLight) : warm ? (i % 2 ? PAL.fire : PAL.rockLight) : i % 2 ? PAL.rockLight : PAL.rockMid);
+        }
+        this.disk(cx, capY - capR * 0.1, capR * 0.6, capR * 0.4, b, hot ? '#ffffff' : warm ? PAL.fireLight : PAL.stoneLight);
+        g.globalAlpha = 1;
         break;
       }
       case 'cannon':
@@ -1447,14 +1848,14 @@ export class Renderer {
     const ringOwner = toolActive ? this.player : s.owner[view.hover];
     // Buildings that reach a square area around them (Factory, Power Plant, Plaza): outline it.
     const areaKind = toolActive ? view.toolKind : hoverKind;
-    const area = areaKind === Kind.Factory || areaKind === Kind.PowerPlant || areaKind === Kind.Plaza ? unlockTuning(this.tuning, areaKind)?.radius ?? 0 : 0;
+    const area = AREA_KINDS.includes(areaKind) ? unlockTuning(this.tuning, areaKind)?.radius ?? 0 : 0;
     if (area > 0 && (toolActive || s.owner[view.hover] > 0)) {
       const left = x - area * size;
       const top = y - area * size;
       const span = (area * 2 + 1) * size;
       const line = Math.max(1, Math.floor(z / 2));
       g.globalAlpha = 0.8;
-      g.fillStyle = areaKind === Kind.Plaza ? PAL.good : PAL.gold;
+      g.fillStyle = areaKind === Kind.Plaza ? PAL.good : areaKind === Kind.Radar ? PAL.science : areaKind === Kind.University ? PAL.scienceLight : PAL.gold;
       for (let i = 0; i < span; i += 3 * line) {
         g.fillRect(left + i, top, line * 2, line);
         g.fillRect(left + i, top + span - line, line * 2, line);

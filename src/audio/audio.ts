@@ -86,6 +86,45 @@ const SOUNDS: Record<string, { tones: Tone[]; gap: number }> = {
     ],
     gap: 300,
   },
+  magic: {
+    tones: [
+      { wave: 'triangle', freq: 300, to: 900, dur: 0.18, vol: 0.1 },
+      { wave: 'noise', freq: 2400, to: 900, dur: 0.2, vol: 0.06, filter: 'bandpass', q: 2 },
+    ],
+    gap: 90,
+  },
+  rail: {
+    tones: [
+      { wave: 'sawtooth', freq: 2400, to: 300, dur: 0.18, vol: 0.12 },
+      { wave: 'square', freq: 90, to: 45, dur: 0.25, vol: 0.18 },
+      { wave: 'noise', freq: 6000, dur: 0.08, vol: 0.12, filter: 'highpass' },
+    ],
+    gap: 120,
+  },
+  hex: {
+    tones: [
+      { wave: 'sine', freq: 660, to: 440, dur: 0.3, vol: 0.08 },
+      { wave: 'sine', freq: 698, to: 415, dur: 0.3, vol: 0.06, delay: 0.05 },
+      { wave: 'triangle', freq: 1320, to: 880, dur: 0.25, vol: 0.04, delay: 0.1 },
+    ],
+    gap: 400,
+  },
+  sniper: {
+    tones: [
+      { wave: 'noise', freq: 5200, to: 2000, dur: 0.06, vol: 0.18, filter: 'highpass' },
+      { wave: 'square', freq: 1600, to: 200, dur: 0.08, vol: 0.06 },
+    ],
+    gap: 90,
+  },
+  gun: { tones: [{ wave: 'noise', freq: 3000, dur: 0.03, vol: 0.09, filter: 'bandpass', q: 2 }], gap: 45 },
+  nuke: {
+    tones: [
+      { wave: 'sine', freq: 70, to: 22, dur: 2.6, vol: 0.6 },
+      { wave: 'noise', freq: 500, to: 60, dur: 2.8, vol: 0.5, filter: 'lowpass' },
+      { wave: 'noise', freq: 4000, to: 300, dur: 0.6, vol: 0.25, filter: 'bandpass', q: 0.7 },
+    ],
+    gap: 1500,
+  },
   // Blasts and magic.
   fire: { tones: [{ wave: 'noise', freq: 1400, to: 600, dur: 0.3, vol: 0.14, filter: 'bandpass', q: 0.8 }], gap: 120 },
   frost: {

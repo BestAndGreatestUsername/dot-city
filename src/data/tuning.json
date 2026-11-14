@@ -32,7 +32,7 @@
     "rerollCost": 50,
     "tier2Picks": 0,
     "tier3Picks": 0,
-    "modifierChance": 0.1,
+    "modifierChance": 0.15,
     "incomeWeight": 0.35,
     "incomeModifierWeight": 0.4,
     "growthChoice": 0.08
@@ -281,6 +281,51 @@
       "spawnSeconds": 30,
       "splash": 1.4,
       "flies": true
+    },
+    "ram": {
+      "hp": 140,
+      "speed": 0.8,
+      "damage": 30,
+      "cooldownSeconds": 2,
+      "cap": 2,
+      "spawnSeconds": 18,
+      "siege": 3,
+      "armor": 0.5,
+      "noFight": true
+    },
+    "mage": {
+      "hp": 24,
+      "speed": 1.1,
+      "damage": 9,
+      "cooldownSeconds": 2.2,
+      "cap": 3,
+      "spawnSeconds": 14,
+      "range": 3.5,
+      "shoots": true,
+      "splash": 1.2,
+      "siege": 0.2
+    },
+    "assassin": {
+      "hp": 30,
+      "speed": 2,
+      "damage": 12,
+      "cooldownSeconds": 0.8,
+      "cap": 3,
+      "spawnSeconds": 12,
+      "stealth": 1.5,
+      "siege": 1.2,
+      "vsUnits": 1.2
+    },
+    "gunship": {
+      "hp": 90,
+      "speed": 2.6,
+      "damage": 6,
+      "cooldownSeconds": 0.4,
+      "cap": 2,
+      "spawnSeconds": 26,
+      "range": 3,
+      "hunt": 8,
+      "flies": true
     }
   },
   "ai": {
@@ -523,11 +568,97 @@
       "boost": 0.5
     },
     "silo": {
-      "cost": 300,
+      "cost": 450,
       "health": 200,
       "damage": 160,
       "splash": 1.8,
-      "cooldownSeconds": 45
+      "cooldownSeconds": 45,
+      "flightSeconds": 2.2
+    },
+    "hex": {
+      "cost": 110,
+      "health": 80,
+      "range": 4.5,
+      "cooldownSeconds": 12,
+      "charmHp": 45
+    },
+    "marksman": {
+      "cost": 100,
+      "health": 90,
+      "range": 8,
+      "damage": 34,
+      "cooldownSeconds": 2.6
+    },
+    "railgun": {
+      "cost": 230,
+      "health": 140,
+      "range": 10,
+      "damage": 80,
+      "cooldownSeconds": 5
+    },
+    "radar": {
+      "cost": 140,
+      "health": 90,
+      "radius": 3,
+      "boost": 2
+    },
+    "nuke": {
+      "cost": 900,
+      "health": 260,
+      "damage": 1400,
+      "splash": 4,
+      "cooldownSeconds": 150,
+      "flightSeconds": 3.5
+    },
+    "ramworks": {
+      "cost": 90,
+      "health": 100
+    },
+    "arcanum": {
+      "cost": 110,
+      "health": 80
+    },
+    "guild": {
+      "cost": 95,
+      "health": 70
+    },
+    "helipad": {
+      "cost": 240,
+      "health": 130
+    },
+    "lumbermill": {
+      "cost": 50,
+      "health": 50,
+      "gold": 0.2,
+      "per": 0.12
+    },
+    "granary": {
+      "cost": 70,
+      "health": 60,
+      "per": 0.015,
+      "radius": 2
+    },
+    "exchange": {
+      "cost": 200,
+      "health": 100,
+      "per": 0.35
+    },
+    "alchemist": {
+      "cost": 90,
+      "health": 50,
+      "science": 0.6,
+      "upkeep": 0.4
+    },
+    "university": {
+      "cost": 150,
+      "health": 90,
+      "per": 0.012,
+      "radius": 3
+    },
+    "spyden": {
+      "cost": 110,
+      "health": 60,
+      "per": 0.15
     }
   },
   "ages": [

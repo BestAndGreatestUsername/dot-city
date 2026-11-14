@@ -48,6 +48,9 @@ const DEFENCE_MIX: Record<number, number> = {
   [Kind.Cannon]: 0.6,
   [Kind.Obelisk]: 0.5,
   [Kind.MachineGun]: 0.8,
+  [Kind.Hex]: 0.4,
+  [Kind.Marksman]: 0.6,
+  [Kind.Railgun]: 0.6,
 };
 
 /** How the AI spreads its army over the buildings it has unlocked. */
@@ -67,10 +70,14 @@ const ARMY_MIX: Record<number, number> = {
   [Kind.ArtilleryWorks]: 0.5,
   [Kind.TankFactory]: 0.7,
   [Kind.Airfield]: 0.4,
+  [Kind.RamWorks]: 0.5,
+  [Kind.Arcanum]: 0.6,
+  [Kind.Guild]: 0.5,
+  [Kind.Helipad]: 0.4,
 };
 
-const ECONOMY_MIX: Record<number, number> = { [Kind.Mine]: 1, [Kind.Fishery]: 1, [Kind.Market]: 0.7, [Kind.Bank]: 0.3 };
-const SCIENCE_MIX: Record<number, number> = { [Kind.Library]: 1, [Kind.Observatory]: 0.6, [Kind.Academy]: 0.3, [Kind.PrintingPress]: 0.6 };
+const ECONOMY_MIX: Record<number, number> = { [Kind.Mine]: 1, [Kind.Fishery]: 1, [Kind.Market]: 0.7, [Kind.Bank]: 0.3, [Kind.LumberMill]: 1, [Kind.Granary]: 0.6, [Kind.Exchange]: 0.4 };
+const SCIENCE_MIX: Record<number, number> = { [Kind.Library]: 1, [Kind.Observatory]: 0.6, [Kind.Academy]: 0.3, [Kind.PrintingPress]: 0.6, [Kind.Alchemist]: 0.4, [Kind.University]: 0.7, [Kind.SpyDen]: 0.5 };
 
 /** An AI playstyle. */
 export interface Doctrine {
@@ -93,9 +100,9 @@ export const DOCTRINES: Doctrine[] = [
   {
     // Turtles behind towers and bastions, then rolls forward with shields, archers and catapults.
     name: 'Fortress',
-    research: { ballista: 3, frost: 3, cannon: 3, bell: 3, bastion: 3, lightning: 2, obelisk: 2, shrine: 2, barracks: 2, archery: 2, workshop: 2, masonry: 3, engineering: 3, clockwork: 3, artillery: 3, citadel: 3, thorns: 3, mgnest: 3, aa: 3, musket: 2 },
+    research: { ballista: 3, frost: 3, cannon: 3, bell: 3, bastion: 3, lightning: 2, obelisk: 2, shrine: 2, barracks: 2, archery: 2, workshop: 2, masonry: 3, engineering: 3, clockwork: 3, artillery: 3, citadel: 3, thorns: 3, mgnest: 3, aa: 3, musket: 2, marksman: 3, railgun: 3, radar: 3, hex: 2, concrete: 3, lodge: 3, ballistics: 3, satellites: 3, phalanx: 2 },
     army: { [Kind.Barracks]: 3, [Kind.Archery]: 3, [Kind.Workshop]: 2 },
-    defence: { [Kind.Ballista]: 2, [Kind.Cannon]: 2, [Kind.Frost]: 1.5, [Kind.Flame]: 1.5 },
+    defence: { [Kind.Ballista]: 2, [Kind.Cannon]: 2, [Kind.Frost]: 1.5, [Kind.Flame]: 1.5, [Kind.Marksman]: 2, [Kind.Railgun]: 2 },
     defenceScale: 2.4,
     armyScale: 0.9,
     economyScale: 1,
@@ -105,8 +112,8 @@ export const DOCTRINES: Doctrine[] = [
   {
     // Fast and early: hounds loot the houses, knights ride down whoever defends them.
     name: 'Raiders',
-    research: { kennel: 3, stable: 3, archery: 2, flame: 2, bannerhall: 2, airfield: 3, tankworks: 2, march: 3, whetstones: 3, drill: 3, roads: 3 },
-    army: { [Kind.Kennel]: 3, [Kind.Stable]: 3, [Kind.Archery]: 1.5, [Kind.Airfield]: 2.5, [Kind.TankFactory]: 1.5 },
+    research: { kennel: 3, stable: 3, archery: 2, flame: 2, bannerhall: 2, airfield: 3, tankworks: 2, march: 3, whetstones: 3, drill: 3, roads: 3, guild: 3, helipad: 3, bloodoath: 3, medicine: 2, assembly: 2 },
+    army: { [Kind.Kennel]: 3, [Kind.Stable]: 3, [Kind.Archery]: 1.5, [Kind.Airfield]: 2.5, [Kind.TankFactory]: 1.5, [Kind.Guild]: 3, [Kind.Helipad]: 2.5 },
     defence: { [Kind.Flame]: 2 },
     defenceScale: 0.8,
     armyScale: 1.3,
@@ -117,8 +124,8 @@ export const DOCTRINES: Doctrine[] = [
   {
     // Breaks cities apart: spears carve lines, catapults and sappers open walls, giants crush.
     name: 'Siege',
-    research: { spearhall: 3, workshop: 3, powder: 3, lair: 3, barracks: 2, cannon: 2, rams: 3, conscription: 2, chainmail: 2, artworks: 3, tankworks: 3, silo: 3 },
-    army: { [Kind.SpearHall]: 3, [Kind.Workshop]: 2.5, [Kind.PowderHouse]: 2, [Kind.GiantLair]: 2, [Kind.Barracks]: 1.5, [Kind.ArtilleryWorks]: 2.5, [Kind.TankFactory]: 2 },
+    research: { spearhall: 3, workshop: 3, powder: 3, lair: 3, barracks: 2, cannon: 2, rams: 3, conscription: 2, chainmail: 2, artworks: 3, tankworks: 3, silo: 3, ramworks: 3, nuke: 3, totalwar: 3, standing: 2 },
+    army: { [Kind.SpearHall]: 3, [Kind.Workshop]: 2.5, [Kind.PowderHouse]: 2, [Kind.GiantLair]: 2, [Kind.Barracks]: 1.5, [Kind.ArtilleryWorks]: 2.5, [Kind.TankFactory]: 2, [Kind.RamWorks]: 3 },
     defence: { [Kind.Cannon]: 2 },
     defenceScale: 1,
     armyScale: 1.2,
@@ -129,8 +136,8 @@ export const DOCTRINES: Doctrine[] = [
   {
     // A sea of warriors with monks behind them, attacking again and again.
     name: 'Horde',
-    research: { barracks: 2, spearhall: 2, monastery: 3, shrine: 2, bannerhall: 3, musket: 3, factory: 3, conscription: 3, drill: 3, chainmail: 3, whetstones: 3 },
-    army: { [Kind.Camp]: 3, [Kind.Barracks]: 2, [Kind.Monastery]: 1.5, [Kind.BannerHall]: 2, [Kind.MusketRange]: 2 },
+    research: { barracks: 2, spearhall: 2, monastery: 3, shrine: 2, bannerhall: 3, musket: 3, factory: 3, conscription: 3, drill: 3, chainmail: 3, whetstones: 3, arcanum: 3, hex: 2, standing: 3, medicine: 3, bloodoath: 2 },
+    army: { [Kind.Camp]: 3, [Kind.Barracks]: 2, [Kind.Monastery]: 1.5, [Kind.BannerHall]: 2, [Kind.MusketRange]: 2, [Kind.Arcanum]: 2.5 },
     defence: { [Kind.Lightning]: 1.5 },
     defenceScale: 0.8,
     armyScale: 1.6,
@@ -141,7 +148,7 @@ export const DOCTRINES: Doctrine[] = [
   {
     // Gets rich first, then buys the expensive things: giants, knights, cannons.
     name: 'Merchant',
-    research: { mine: 3, fishery: 3, market: 3, bank: 3, plaza: 3, power: 3, press: 3, silo: 2, library: 2, observatory: 2, academy: 2, lair: 2, cannon: 2, stable: 2, trade: 3, golden: 3, scribes: 2 },
+    research: { mine: 3, fishery: 3, market: 3, bank: 3, plaza: 3, power: 3, press: 3, silo: 2, library: 2, observatory: 2, academy: 2, lair: 2, cannon: 2, stable: 2, trade: 3, golden: 3, scribes: 2, lumbermill: 3, granary: 3, exchange: 3, alchemist: 2, university: 3, spyden: 2, nuke: 2, charters: 3, soil: 3, mercantilism: 3, automation: 3 },
     army: { [Kind.GiantLair]: 3, [Kind.Stable]: 2, [Kind.Workshop]: 2 },
     defence: { [Kind.Cannon]: 2, [Kind.Lightning]: 2 },
     defenceScale: 1.1,
@@ -176,6 +183,10 @@ const UNIT_WEIGHT: Record<number, number> = {
   [UnitType.Artillery]: 4,
   [UnitType.Tank]: 8,
   [UnitType.Bomber]: 5,
+  [UnitType.Ram]: 4,
+  [UnitType.Mage]: 3,
+  [UnitType.Assassin]: 3,
+  [UnitType.Gunship]: 5,
 };
 
 interface View {
@@ -346,7 +357,7 @@ function bestSupportCell(v: View, kind: number): number {
   const { s, t, colony } = v;
   const w = s.width;
   // Factories and Power Plants reach a square around them; towers by their range.
-  const range = kind === Kind.Factory || kind === Kind.PowerPlant ? (unlockTuning(t, kind)?.radius ?? 3) : towerRange(t, colony, kind);
+  const range = kind === Kind.Factory || kind === Kind.PowerPlant || kind === Kind.Radar ? (unlockTuning(t, kind)?.radius ?? 3) : towerRange(t, colony, kind);
   const r = Math.ceil(range);
   let best = -1;
   let bestScore = 1;
@@ -364,7 +375,7 @@ function bestSupportCell(v: View, kind: number): number {
         const k = s.kind[n];
         if (k === kind) crowded = true;
         const serves =
-          kind === Kind.Bell ? isAttacking(k) : kind === Kind.Factory ? PRODUCERS.includes(k) : kind === Kind.PowerPlant ? ECONOMY.includes(k) : k !== Kind.House;
+          kind === Kind.Bell || kind === Kind.Radar ? isAttacking(k) : kind === Kind.Factory ? PRODUCERS.includes(k) : kind === Kind.PowerPlant ? ECONOMY.includes(k) : k !== Kind.House;
         if (serves) score++;
       }
     }
@@ -414,8 +425,8 @@ function bestYieldCell(v: View, kind: number): number {
   const spec = unlockTuning(t, kind);
   if (!spec) return -1;
   // Only worth it with enough of what the building feeds on around it.
-  const terrain = kind === Kind.Fishery ? Terrain.Water : Terrain.Mountain;
-  const needsTerrain = kind === Kind.Mine || kind === Kind.Fishery || kind === Kind.Observatory;
+  const terrain = kind === Kind.Fishery ? Terrain.Water : kind === Kind.LumberMill ? Terrain.Forest : Terrain.Mountain;
+  const needsTerrain = kind === Kind.Mine || kind === Kind.Fishery || kind === Kind.Observatory || kind === Kind.LumberMill;
   const least = kind === Kind.Observatory ? 1 : 2;
   let best = -1;
   let bestScore = -Infinity;
@@ -515,7 +526,7 @@ interface Slot {
 }
 
 /** Army buildings that crack fortified cities: catapults, sappers, giants, spearmen and shields. */
-const SIEGE_KINDS = [Kind.Workshop, Kind.PowderHouse, Kind.GiantLair, Kind.SpearHall, Kind.Barracks, Kind.ArtilleryWorks, Kind.TankFactory];
+const SIEGE_KINDS = [Kind.Workshop, Kind.PowderHouse, Kind.GiantLair, Kind.SpearHall, Kind.Barracks, Kind.ArtilleryWorks, Kind.TankFactory, Kind.RamWorks];
 
 /**
  * The doctrine's army taste, shifted towards siege when the colony it is likely to fight is
@@ -561,7 +572,7 @@ function decide(s: GameState, t: Tuning, colony: Colony): Command | null {
 
   const defenceKinds = Object.keys(DEFENCE_MIX).map(Number);
   // Does any rival have aircraft (or the means to make them)?
-  const enemyFlies = s.colonies.some((o) => o.alive && o.id !== colony.id && o.counts[Kind.Airfield] > 0);
+  const enemyFlies = s.colonies.some((o) => o.alive && o.id !== colony.id && (o.counts[Kind.Airfield] > 0 || o.counts[Kind.Helipad] > 0));
   const defences = sumCounts(colony, defenceKinds);
   const unlockedEconomy = ECONOMY.filter((k) => !isLocked(colony, k));
   const unlockedScience = SCIENCE.filter((k) => !isLocked(colony, k));
@@ -650,6 +661,20 @@ function decide(s: GameState, t: Tuning, colony: Colony): Command | null {
       place: (k) => bestSupportCell(v, k),
     },
     {
+      weight: 0.6,
+      want: isLocked(colony, Kind.NukeSilo) ? 0 : 1 + Math.floor(size / 400),
+      have: colony.counts[Kind.NukeSilo],
+      kinds: [Kind.NukeSilo],
+      place: () => bestInnerCell(v),
+    },
+    {
+      weight: 0.45,
+      want: isLocked(colony, Kind.Radar) ? 0 : Math.floor(defences / 6),
+      have: colony.counts[Kind.Radar],
+      kinds: [Kind.Radar],
+      place: (k) => bestSupportCell(v, k),
+    },
+    {
       weight: 0.45,
       want: isLocked(colony, Kind.Bell) ? 0 : Math.floor(defences / 5),
       have: colony.counts[Kind.Bell],
@@ -722,7 +747,8 @@ export function pickResearch(offer: string[], colony?: Colony): number {
     const option = researchOption(id);
     // A doctrine's taste counts fully for buildings and half for modifiers: rivals still
     // mostly grow their arsenal, and take a favourite modifier over an ordinary building.
-    const bonus = taste[id] ?? 1;
+    // Anti-Air only turns up once someone flies: then it is wanted badly.
+    const bonus = id === 'aa' ? 4 : (taste[id] ?? 1);
     const score = option.kind === 'modifier' ? 2 * (1 + (bonus - 1) / 2) : 3 * bonus;
     if (score > bestScore) {
       bestScore = score;

@@ -117,6 +117,25 @@ const AIRFIELD = ['DDDDDDDD', 'D..W...D', 'D.WWW..D', 'DWWRWWWD', 'D.WWW..D', 'D
 const AA = ['.M..M...', '.M..M...', '.MM.MM..', '..MMM...', '.SRRRSs.', '.SSSSSs.', '.SsddsS.', 'DDDDDDDD'];
 const POWER = ['..SSSS..', '..S..S..', '.S....S.', '.S.ZZ.S.', '.S.Z..S.', 'S..ZZ..S', 'SSSSSSSS', 'DDDDDDDD'];
 const SILO = ['...R....', '..RWR...', '..WWW...', '..WRW...', '..WWW...', '.SWWWS..', 'SSDDDSSs', 'DDDDDDDD'];
+const HEX = ['.E....E.', '..E..E..', '...VV...', '..VEEV..', '.SSVVSs.', '.SvEEvS.', '.SsvvsS.', 'DDDDDDDD'];
+const MARKSMAN = ['...pp...', '..RRRr..', 'MMMRR...', '.SSSSSs.', '..SnsS..', '..SssS..', '..SnsS..', '.SSSSSs.'];
+const RAILGUN = ['......Ae', '....AMM.', '..AMM...', '.MMM....', '.SRRRSs.', 'SSSSSSSs', 'SAaAaAsS', 'DDDDDDDD'];
+const RADAR = ['.MMMMMM.', 'M......M', '.M.Z..M.', '..MMMM..', '....M...', '.SRRRSs.', '.SsssSs.', 'DDDDDDDD'];
+const NUKE = ['...y....', '..yYy...', '..pyp...', '..yYy...', '..ypy...', '.SyYyS..', 'SSDDDSSs', 'DpDyDpDD'];
+const RAMWORKS = ['........', '.HRRRRr.', 'HRRRRRRr', '.kkkkkk.', 'MMkkkkMM', '.kkkkkk.', '.p.pp.p.', 'kkkkkkkk'];
+const ARCANUM = ['...V....', '..VvV...', '.VVvVV..', '..SSS...', '.SRRRS..', '.SnVnS..', '.SSdSS..', 'DDDDDDDD'];
+const GUILD = ['........', '.pppppp.', 'pRRRRRRp', '.SSSSSs.', '.SnSSns.', '.SSppSs.', '.SSppSs.', 'DDDDDDDD'];
+const HELIPAD = ['DDDDDDDD', 'DMMMMMMD', 'DMyMMyMD', 'DMyyyyMD', 'DMyMMyMD', 'DMyMMyMD', 'DMMMMMMD', 'DDDDDDDD'];
+const LUMBERMILL = ['...k....', '..HRr...', '.HRRRr..', '.WWWWw.k', '.WdWWwkk', '.WdWWw.k', 'kkkkkkkk', 'k.k.k.k.'];
+const GRANARY = ['...RR...', '..RRRr..', '.RRRRRr.', '.WWWWWw.', '.WyYyYw.', '.WyYyYw.', '.WWddWw.', '........'];
+const EXCHANGE = ['.SSSSSS.', 'SSSSSSSS', '.S.S.S.S', '.S.S.S.S', '.SgSgSgS', '.S.S.S.S', 'SSSSSSSS', 'DDDDDDDD'];
+const ALCHEMIST = ['......A.', '...c.AAa', '..HRr.a.', '.HRRRr..', '.WWWWw..', '.WAgAw..', '.WWddw..', '........'];
+const UNIVERSITY = ['...AA...', '..AaaA..', '.SSSSSS.', 'SRRRRRRS', 'SnSnSnSS', 'SSSSSSSS', 'SnSddSnS', 'DDDDDDDD'];
+const SPYDEN = ['........', '..pppp..', '.pppppp.', 'ppRRRRpp', '.SSSSSs.', '.SnSSns.', '.SSddSs.', 'DDDDDDDD'];
+const RAM_UNIT = ['......', '.RRRR.', 'RRRRRR', 'kkkkMM', 'kkkkMM', '.p..p.'];
+const MAGE_UNIT = ['..VV.e', '.VVVVk', '..ff.k', '.RRRRk', '.RRR.k', '.p.p.k'];
+const ASSASSIN_UNIT = ['..pp..', '..pf..', '.pRRp.', 'W.RRp.', '..rr..', '.p.p..'];
+const GUNSHIP_UNIT = ['........', '...M....', '..RRRR..', 'MRRRRRRn', '.RRRRRR.', '...M....', '..MMMM..', '........'];
 const LAIR = ['..KKKK..', '.KKKKKK.', 'KKKRrKKK', 'KKppppKK', 'KppppppK', 'KppppppK', 'KkpppkKK', 'KKKKKKKK'];
 
 const WARRIOR_UNIT = ['..ff..', '..ff.W', '.RRRW.', '.RRR..', '..rr..', '.p.p..'];
@@ -221,6 +240,10 @@ function colonySprites(c: ColonyColors): ColonySprites {
     [UnitType.Artillery]: ARTILLERY_UNIT,
     [UnitType.Tank]: TANK_UNIT,
     [UnitType.Bomber]: BOMBER_UNIT,
+    [UnitType.Ram]: RAM_UNIT,
+    [UnitType.Mage]: MAGE_UNIT,
+    [UnitType.Assassin]: ASSASSIN_UNIT,
+    [UnitType.Gunship]: GUNSHIP_UNIT,
   };
   const unitsWalk: Record<number, [Sprite, Sprite]> = {};
   const unitsFlash: Record<number, [Sprite, Sprite]> = {};
@@ -277,6 +300,21 @@ function colonySprites(c: ColonyColors): ColonySprites {
       [Kind.AABattery]: paint(AA, colors),
       [Kind.PowerPlant]: paint(POWER, colors),
       [Kind.MissileSilo]: paint(SILO, colors),
+      [Kind.Hex]: paint(HEX, colors),
+      [Kind.Marksman]: paint(MARKSMAN, colors),
+      [Kind.Railgun]: paint(RAILGUN, colors),
+      [Kind.Radar]: paint(RADAR, colors),
+      [Kind.NukeSilo]: paint(NUKE, colors),
+      [Kind.RamWorks]: paint(RAMWORKS, colors),
+      [Kind.Arcanum]: paint(ARCANUM, colors),
+      [Kind.Guild]: paint(GUILD, colors),
+      [Kind.Helipad]: paint(HELIPAD, colors),
+      [Kind.LumberMill]: paint(LUMBERMILL, colors),
+      [Kind.Granary]: paint(GRANARY, colors),
+      [Kind.Exchange]: paint(EXCHANGE, colors),
+      [Kind.Alchemist]: paint(ALCHEMIST, colors),
+      [Kind.University]: paint(UNIVERSITY, colors),
+      [Kind.SpyDen]: paint(SPYDEN, colors),
     },
     units: {
       [UnitType.Shield]: both(SHIELD_UNIT),
@@ -294,6 +332,10 @@ function colonySprites(c: ColonyColors): ColonySprites {
       [UnitType.Artillery]: both(ARTILLERY_UNIT),
       [UnitType.Tank]: both(TANK_UNIT),
       [UnitType.Bomber]: both(BOMBER_UNIT),
+      [UnitType.Ram]: both(RAM_UNIT),
+      [UnitType.Mage]: both(MAGE_UNIT),
+      [UnitType.Assassin]: both(ASSASSIN_UNIT),
+      [UnitType.Gunship]: both(GUNSHIP_UNIT),
     },
     unitsWalk,
     unitsFlash,

@@ -76,6 +76,11 @@ Buildings sit in four tabs: **Economy** (`Z`), **Science** (`X`), **Defence** (`
 | Thorn Wall | research | A tough wall (550 health) that cuts every enemy who strikes it for 6 damage. |
 | Cannon Tower | research | Long-range shells that blast whole groups. |
 | Obelisk | research | A beam that locks on and burns hotter the longer it holds. |
+| Hex Tower | research (Medieval) | Every 12 seconds it bewitches the nearest light enemy (45 health or less): it fights for you from then on. |
+| Marksman Tower | research (Gunpowder) | Range 8, armour-piercing; picks off the back line first (monks, bearers, sappers, mages, catapults, artillery). |
+| Radar | research (Industrial) | Every tower within 3 squares reaches 2 squares further. |
+| Railgun | research (Modern) | A slug through every enemy unit in a straight line, 10 squares long, armour and all. |
+| Nuke Silo | **rare** research (Modern) | Every 150 seconds a nuclear warhead flattens everything within 4 squares of a random building of the colony you attack, armies included (the Center Tower only takes a share). 900 gold. |
 
 ### Economy and science
 
@@ -91,6 +96,12 @@ Buildings sit in four tabs: **Economy** (`Z`), **Science** (`X`), **Defence** (`
 | Bank | research | 0.5% of your saved gold every second, up to 4 gold/s. |
 | Academy | research | 1.6 science/s anywhere. |
 | Plaza | research | Your city grows 2.5 times as fast within 3 squares of it: steer where it spreads. |
+| Lumber Mill | research (Medieval) | 0.2 gold/s, +0.12 for every forest square still standing around it. |
+| Granary | research (Medieval) | +0.015 gold/s for every farm of yours within 2 squares. |
+| Alchemist | research (Medieval) | Burns 0.4 gold/s into 0.6 science/s (stops when your treasury is empty). |
+| Spy Den | research (Gunpowder) | +0.15 science/s for every rival still standing. |
+| University | research (Industrial) | +0.012 science/s for every house of yours within 3 squares. |
+| Stock Exchange | research (Modern) | +0.35 gold/s for every money building you own, anywhere. |
 
 A house earns 0.02 gold/s, so one good Mine is worth a whole district. By 20 minutes a typical colony earns about 40% of its gold from houses, 25% from farms and a third from money buildings. Under your gold, the status panel splits your income into **HOUSES** and **ECONOMY** (farms plus every money building). Every 8 seconds each block of farms shows the gold it harvested over its middle, and hovering a farm says exactly what it earns and how much its neighbours add. When you are placing a money or science building, the tip bar shows what it would earn on the square under the cursor, and every money and science building pops its earnings over its roof every few seconds.
 
@@ -111,6 +122,10 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 | Powder House | Sapper | The demolisher | The only unit that can blast a way through mountains; blows apart the squares it reaches. | Dies doing it. |
 | Giant's Lair | Giant | The juggernaut | Its stomp hits every enemy around it and crushes the buildings too. | One at a time; slow. |
 | Banner Hall | Standard Bearer | The inspiration | Every unit within 2.5 squares of a banner hits 25% harder and moves 15% faster. | Never fights. |
+| Ram Works | Battering Ram | The wall-breaker | Armoured (takes half damage); smashes buildings three times as hard. | Never fights units; slow. |
+| Arcane Hall | Mage | The artillery mage | Fireballs from 3.5 squares that burst over a whole group of enemy units. | Fragile; barely scratches buildings. |
+| Thieves' Guild | Assassin | The infiltrator | Enemy towers cannot see it until it is 1.5 squares away: it slips past defences. Fast, deadly up close. | Fragile once spotted. |
+| Helipad | Gunship | The hunter from the sky | Flies over everything and rakes enemy units with fire. | Never touches buildings; only anti-air and Center Towers can hit it. |
 
 - You give one order to the whole colony: **Hold** or **Attack** one rival. On **Hold** your units defend: they gather at their buildings and go out after any enemy on or beside your land, up to 22 squares away.
 - Anything left alone for 8 seconds repairs itself: walls, towers and buildings 5% of their health a second, the Center Tower 1%.
@@ -126,20 +141,26 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 
 Everything you hear is synthesised in the browser (no audio files):
 
-- **Effects** for growth and building, every kind of shot (crossbow bolts, arrows, ballistas, spears, lightning, cannon booms, boulders, missiles), fire, frost and healing magic, melee clangs and heavy blows, deaths and collapsing buildings, loot, landmarks, discoveries, the start of each age, war horns, the tower alarm, victory and defeat. Effects come from where they happen: the further from your view, the quieter. Repeats are throttled so a big battle stays listenable.
+- **Effects** for growth and building, every kind of shot (crossbow bolts, arrows, ballistas, spears, lightning, cannon booms, boulders, fireballs, railguns, rifles, hexes, gunfire, missiles and nukes), fire, frost and healing magic, melee clangs and heavy blows, deaths and collapsing buildings, loot, landmarks, discoveries, the start of each age, war horns, the tower alarm, victory and defeat. Effects come from where they happen: the further from your view, the quieter. Repeats are throttled so a big battle stays listenable.
 - **Music:** a 16-bar chiptune song for each age (your colony's age), with a verse, a big chorus with a harmony line, drum fills into each section, and a tense battle layer while anyone is attacking you. It plays quieter while the game is paused.
   - Medieval (116 bpm): a galloping folk tune with a frame drum.
   - Gunpowder (124 bpm): a fife march over snare rolls.
   - Industrial (130 bpm): a driving rock riff over pumping bass.
   - Modern (138 bpm): a synth anthem with fast arpeggios and a four-on-the-floor beat.
 - **Screen shake** is gentle: a few pixels at most, fading fast.
+
+### What you see in a fight
+
+- **Projectiles** each have their own look: crossbow bolts streak, arrows arc with a wooden shaft and white fletching, ballista bolts leave a wake, cannonballs and boulders tumble on an arc with a smoke trail, mage fireballs glow violet, hexes spiral green, a marksman's shot is a hair-thin tracer, a railgun slug is a blinding cyan beam with rings rippling along it, gunships spit yellow tracers.
+- **Missiles and nukes** are in the air for a few seconds: a target marker (red for a missile, gold for a nuke) appears where they will land, and the warhead climbs, arcs and plunges with a flame and a smoke trail. The damage happens when it lands. A nuke flashes the screen white, sends a shockwave out and raises a mushroom cloud. Everyone is warned when a nuke is launched; you are warned when a missile is coming for you.
+- **Health bars** have a dark frame, notches every quarter, green, then gold, then red as health falls, a pale chunk that shows what was just lost and drains away, and a blink below a quarter. Center Towers get a bigger bar framed in their colony's colour.
 - **Volume:** MUSIC and SOUND in the menu (`M`), in steps of 25%, remembered between visits. Sound starts on your first click, as browsers require.
 
 ### The ages
 
 Each colony moves through the ages on its own, by how many discoveries it has made: **Medieval** (the start, with its magic: Frost and Lightning Towers, the Obelisk, the Shrine, monks and giants), **Gunpowder** at 3 discoveries, **Industrial** at 6 and **Modern** at 9. Entering an age brings a **breakthrough**: a free discovery chosen only from that age's buildings (it counts towards the next age, so in practice that is 3, 5 and 7 discoveries of your own). Medieval usually lasts about 10 minutes. Research offers only what your age (or an earlier one) knows. The colony list shows each colony's age.
 
-Anti-air only matters once there is something in the sky: the moment anyone builds an **Airfield**, every colony learns the **AA Battery**, and a message says so.
+Anti-air only matters once there is something in the sky. Nobody gets it for free: the moment anyone builds an **Airfield** or a **Helipad**, the **AA Battery** starts turning up in research for everyone, in any age, and often (six times as likely as an ordinary option). A message says so.
 
 | Age | Building | Its one job |
 | --- | --- | --- |
@@ -151,9 +172,9 @@ Anti-air only matters once there is something in the sky: the moment anyone buil
 | Industrial | Artillery Works → Artillery | Range 9, beyond every tower; shells only towers. |
 | Modern | Tank Factory → Tanks | Armoured (take 35% damage); their shells hit units and buildings in an area. |
 | Modern | Airfield → Bombers | Fly over walls and water to bomb the most valuable building of the colony you attack. Only AA Batteries and Center Towers can hit them. |
-| Modern | AA Battery | The only tower that shoots aircraft; it shoots nothing else. |
+| Any (once someone flies) | AA Battery | The only tower that shoots aircraft; it shoots nothing else. |
 | Modern | Power Plant | Money buildings within 3 squares earn 50% more. |
-| Modern | Missile Silo | Every 45 seconds it strikes a random building (not a house) of the colony your army is attacking, anywhere on the map; on Hold, of the nearest rival. |
+| Modern | Missile Silo | 450 gold. Every 45 seconds it fires a missile at a random building (never a house or the Center Tower) of the colony your army is attacking, anywhere on the map; on Hold, at the nearest rival. It lands 2.2 seconds later. |
 
 Giants now have a thick hide (they take 60% of ordinary damage); ballista bolts and musket balls pierce armour.
 
@@ -161,8 +182,8 @@ Giants now have a thick hide (they take 60% of ordinary damage); ballista bolts 
 
 - Science fills a bar. The first discovery costs 40 science and each one after costs 50% more, so in a game you get a handful of discoveries, not all of them: **every colony specialises** in a few towers and units. (Watching six AI rivals: the first discovery comes around 5 minutes with one research building, and by 15 minutes each has 5 to 8, with an army of two to four unit types.)
 - A discovery pauses the game and offers **two choices**, each showing its price and what it earns (gold or science a minute). Or take neither: **+8% city growth**, for good (it does not count towards the next age). The game resumes once you choose.
-- Almost every choice is a **new building**. About one choice in ten is a **rare modifier**, which always affects everything of a kind: "all units move 10% faster", "all towers reload 15% faster", "all gold income +10%". No modifier ever applies to just one unit or tower type.
-- There are 16 modifiers: Forced March, Whetstones, Masonry, Trade Routes, Scribes, Architects, Chainmail, Drill Sergeants, Engineering, Clockwork, Roads, Battering Rams, Conscription, Artillery, Citadel and Golden Age.
+- Almost every choice is a **new building** (53 of them to discover, and only a handful per game, so no two games are alike). About one choice in seven is a **rare modifier**, which always affects everything of a kind: "all units move 10% faster", "all towers reload 15% faster", "all gold income +10%". No modifier ever applies to just one unit or tower type.
+- There are 33 modifiers. The classics: Forced March, Whetstones, Masonry, Trade Routes, Scribes, Architects, Chainmail, Drill Sergeants, Engineering, Clockwork, Roads, Battering Rams, Conscription, Artillery, Citadel and Golden Age. Plus: **Guild Charters** (buildings 15% cheaper), **Rich Soil** (houses earn 25% more), **Masons' Lodge** (repairs twice as fast), **Field Medicine** (units heal 1 health a second), **Boom Town** (city grows 15% faster), **Ballistics**, **Reinforced Concrete**, **Assembly Lines**, **Satellites** (towers +2 range), **Automation** (buildings 25% cheaper and built in half the time), and trade-offs that cut both ways: **Blood Oath** (+25% damage, −10% health), **Phalanx** (+30% health, −10% speed), **Rapid Fire** (reload 25% faster, −10% damage), **Standing Army** (+1 unit per building, raised 10% slower), **Enlightenment** (+30% science, −10% gold), **Mercantilism** (+25% gold, −10% science) and **Total War** (+20% damage, and +20% more to buildings).
 - **It is not a tree.** Any building of your age can turn up; what you take shapes your playstyle. (Tiers still exist in the tuning, `tier2Picks`/`tier3Picks`, but are switched off.)
 - Money and science buildings, and the gold and science modifiers, are rarer than the rest: about a third as likely as any other option.
 - A re-roll costs 50 gold.

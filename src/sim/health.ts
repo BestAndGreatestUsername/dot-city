@@ -1,6 +1,6 @@
 // Health, damage, destruction, rubble, build-up time and defeat (D4, D9, D16).
 
-import { acts, unlockTuning } from './catalog';
+import { acts, unitMaxHp, unlockTuning } from './catalog';
 import { addPending, ownFarmNeighbours, refreshAround, removeEdge } from './state';
 import { Kind, type Colony, type GameState, type SimEvent, type Tuning } from './types';
 
@@ -115,13 +115,21 @@ export function stepRegen(s: GameState, t: Tuning): void {
     const kind = s.kind[c];
     if (kind === Kind.Tower) continue;
     const full = maxHealthAt(s, t, c);
-    if (s.hp[c] < full) s.hp[c] = Math.min(full, s.hp[c] + full * t.combat.regenPerSecond);
+    if (s.hp[c] < full) s.hp[c] = Math.min(full, s.hp[c] + full * t.combat.regenPerSecond * s.colonies[owner - 1].mods.regen);
   }
   for (const colony of s.colonies) {
     if (!colony.alive) continue;
     if (colony.towerCells.some((c) => s.lastHit[c] > quiet)) continue;
     const full = towerMaxHealth(t, colony);
-    if (colony.towerHp < full) colony.towerHp = Math.min(full, colony.towerHp + full * t.combat.towerRegenPerSecond);
+    if (colony.towerHp < full) colony.towerHp = Math.min(full, colony.towerHp + full * t.combat.towerRegenPerSecond * colony.mods.regen);
+  }
+  // Field Medicine: units heal a little every second.
+  for (const u of s.units) {
+    if (u.hp <= 0) continue;
+    const colony = s.colonies[u.owner - 1];
+    if (colony.mods.unitRegen <= 0) continue;
+    const full = unitMaxHp(t, colony, u.type);
+    if (u.hp < full) u.hp = Math.min(full, u.hp + colony.mods.unitRegen);
   }
 }
 

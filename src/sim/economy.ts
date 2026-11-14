@@ -22,7 +22,8 @@ export function buildingTuning(t: Tuning, kind: number): BuildingTuning | null {
 export function costOf(s: GameState, t: Tuning, owner: number, kind: number): number {
   const def = buildingTuning(t, kind);
   if (!def) return Infinity;
-  return Math.ceil(def.cost + def.costStep * s.colonies[owner - 1].counts[kind]);
+  const colony = s.colonies[owner - 1];
+  return Math.ceil((def.cost + def.costStep * colony.counts[kind]) * colony.mods.cost);
 }
 
 /** Affordable, and (for buildings research unlocks) already unlocked. */
@@ -42,7 +43,7 @@ export function goldPerSecond(c: Colony, t: Tuning): number {
   const d = c.dormant;
   return (
     (e.towerGoldPerSecond +
-      e.houseGoldPerSecond * (c.houses - d.houses + e.terrainHouseBonus * c.terrainHouses) +
+      e.houseGoldPerSecond * m.houseGold * (c.houses - d.houses + e.terrainHouseBonus * c.terrainHouses) +
       e.farmGoldPerSecond * (c.counts[Kind.Farm] - d.farms) +
       e.farmNeighbourBonus * (c.farmLinks - d.farmLinks)) *
       m.gold +
@@ -90,6 +91,19 @@ function housesAround(s: GameState, cell: number, owner: number, radius: number)
       if (dx === 0 && dy === 0) continue;
       const n = offset(s, cell, dx, dy);
       if (n >= 0 && s.owner[n] === owner && s.kind[n] === Kind.House) total++;
+    }
+  }
+  return total;
+}
+
+/** The colony's own squares of one kind within `radius` squares (a square area), not counting this cell. */
+function kindAround(s: GameState, cell: number, owner: number, radius: number, kind: number): number {
+  let total = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const n = offset(s, cell, dx, dy);
+      if (n >= 0 && s.owner[n] === owner && s.kind[n] === kind) total++;
     }
   }
   return total;
@@ -147,6 +161,26 @@ function rawYield(s: GameState, t: Tuning, cell: number, owner: number, kind: nu
       return { gold: 0, science: (spec.science ?? 0) + per * terrainAround(s, cell, Terrain.Mountain) };
     case Kind.Academy:
       return { gold: 0, science: spec.science ?? 0 };
+    case Kind.LumberMill:
+      return { gold: (spec.gold ?? 0) + per * terrainAround(s, cell, Terrain.Forest), science: 0 };
+    case Kind.Granary:
+      return { gold: per * kindAround(s, cell, owner, spec.radius ?? 1, Kind.Farm), science: 0 };
+    case Kind.Exchange: {
+      // Every money building you own, anywhere (other exchanges excluded).
+      let money = 0;
+      for (const k of ECONOMY) if (k !== Kind.Exchange) money += colony.counts[k];
+      return { gold: per * money, science: 0 };
+    }
+    case Kind.Alchemist:
+      // Burns gold into science, but only while there is gold to burn.
+      return colony.gold > (spec.upkeep ?? 0) ? { gold: -(spec.upkeep ?? 0), science: spec.science ?? 0 } : { gold: 0, science: 0 };
+    case Kind.University:
+      return { gold: 0, science: per * housesAround(s, cell, owner, spec.radius ?? 1) };
+    case Kind.SpyDen: {
+      let rivals = 0;
+      for (const other of s.colonies) if (other.alive && other.id !== owner) rivals++;
+      return { gold: 0, science: per * rivals };
+    }
     default:
       return { gold: 0, science: 0 };
   }

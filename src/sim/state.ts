@@ -56,6 +56,7 @@ export function createEmptyState(width: number, height: number, seed: number, mo
     aiLevel: 0,
     airborne: false,
     lastHit: new Int32Array(n).fill(-1000000),
+    strikes: [],
     colonies: [],
   };
 }

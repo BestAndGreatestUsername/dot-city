@@ -571,14 +571,91 @@ describe('the later ages: every new thing has its own job', () => {
     s.colonies[0].order = 2;
     place(s, 3, 9, 1, Kind.MissileSilo);
     place(s, 34, 2, 2, Kind.Cannon);
-    const events = run(s, Math.round((calm.combat.buildSeconds + 1) * calm.tickRate));
-    const missile = events.find((e) => e.type === 'shot' && e.style === 'missile');
-    expect(missile).toBeDefined();
-    // It landed on one of the target colony's buildings.
-    if (missile && missile.type === 'shot') {
-      const c = at(Math.floor(missile.x1), Math.floor(missile.y1));
-      expect([Kind.Tower, Kind.Cannon, Kind.Rubble]).toContain(s.kind[c]);
-    }
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 200 && !events.some((e) => e.type === 'launch'); i++) step(s, calm, events);
+    const launch = events.find((e) => e.type === 'launch');
+    expect(launch).toBeDefined();
+    // It is in the air for a while, aimed at one of the target colony's buildings (never the tower)...
+    expect(s.strikes.length).toBe(1);
+    const strike = s.strikes[0];
+    expect(s.kind[at(Math.floor(strike.x), Math.floor(strike.y))]).toBe(Kind.Cannon);
+    const hp = s.hp[at(34, 2)];
+    // ...and only does its damage when it lands.
+    const later = run(s, Math.round((calm.unlockables.silo.flightSeconds ?? 2) * calm.tickRate) + 1);
+    expect(s.strikes.length).toBe(0);
+    expect(later.some((e) => e.type === 'blast')).toBe(true);
+    expect(s.kind[at(34, 2)] !== Kind.Cannon || s.hp[at(34, 2)] < hp).toBe(true);
+  });
+
+  it('a nuke flattens a whole district, armies included, but only scratches the Center Tower', () => {
+    const s = board();
+    s.colonies[0].order = 2;
+    place(s, 3, 9, 1, Kind.NukeSilo);
+    place(s, 30, 2, 2, Kind.Cannon);
+    place(s, 31, 3, 2, Kind.Crossbow);
+    const tower = s.colonies[1].towerHp;
+    const events = run(s, Math.round((calm.combat.buildSeconds + 1 + (calm.unlockables.nuke.flightSeconds ?? 3)) * calm.tickRate) + 2);
+    expect(events.some((e) => e.type === 'nuke')).toBe(true);
+    expect(s.kind[at(30, 2)]).not.toBe(Kind.Cannon);
+    expect(s.colonies[1].alive).toBe(true);
+    expect(s.colonies[1].towerHp).toBeGreaterThan(tower * 0.5);
+  });
+
+  it('a hex tower turns a light enemy to its side', () => {
+    const s = board();
+    place(s, 6, 6, 1, Kind.Hex);
+    run(s, Math.round((calm.combat.buildSeconds + 0.5) * calm.tickRate));
+    const victim = unit(s, 2, UnitType.Warrior, 8.5, 6.5);
+    const events = defend(s, 2);
+    expect(events.some((e) => e.type === 'charm')).toBe(true);
+    expect(victim.owner).toBe(1);
+  });
+
+  it('a marksman shoots the healer behind the line first; a railgun pierces the whole line', () => {
+    const s = board();
+    place(s, 6, 6, 1, Kind.Marksman);
+    run(s, Math.round((calm.combat.buildSeconds + 0.5) * calm.tickRate));
+    const front = unit(s, 2, UnitType.Warrior, 9.5, 6.5);
+    const monk = unit(s, 2, UnitType.Monk, 12.5, 6.5);
+    defend(s, 2);
+    expect(monk.hp).toBeLessThan(unitTuning(calm, UnitType.Monk).hp);
+    expect(front.hp).toBe(unitTuning(calm, UnitType.Warrior).hp);
+
+    const r = board();
+    place(r, 6, 6, 1, Kind.Railgun);
+    run(r, Math.round((calm.combat.buildSeconds + 0.5) * calm.tickRate));
+    const line = [9.5, 11.5, 13.5].map((x) => unit(r, 2, UnitType.Giant, x, 6.5));
+    defend(r, 2);
+    for (const g of line) expect(g.hp).toBeLessThan(unitTuning(calm, UnitType.Giant).hp);
+  });
+
+  it('towers cannot see an assassin until it is right beside them', () => {
+    const s = board();
+    place(s, 6, 6, 1, Kind.Crossbow);
+    run(s, Math.round((calm.combat.buildSeconds + 0.5) * calm.tickRate));
+    const sneak = unit(s, 2, UnitType.Assassin, 9.5, 6.5);
+    sneak.cooldown = 1000;
+    s.colonies[1].order = 0;
+    const full = sneak.hp;
+    defend(s, 3);
+    expect(sneak.hp).toBe(full);
+  });
+
+  it('new money and science buildings earn what they say', () => {
+    const s = board();
+    s.terrain[at(5, 7)] = Terrain.Forest;
+    s.terrain[at(6, 7)] = Terrain.Forest;
+    const mill = place(s, 5, 6, 1, Kind.LumberMill);
+    const spec = calm.unlockables.lumbermill;
+    expect(buildingYield(s, calm, mill, 1, Kind.LumberMill).gold).toBeCloseTo((spec.gold ?? 0) + 2 * (spec.per ?? 0));
+    const spies = place(s, 8, 8, 1, Kind.SpyDen);
+    expect(buildingYield(s, calm, spies, 1, Kind.SpyDen).science).toBeCloseTo(calm.unlockables.spyden.per ?? 0);
+    s.colonies[0].gold = 0;
+    const alchemist = place(s, 9, 9, 1, Kind.Alchemist);
+    expect(buildingYield(s, calm, alchemist, 1, Kind.Alchemist).science).toBe(0);
+    s.colonies[0].gold = 100;
+    expect(buildingYield(s, calm, alchemist, 1, Kind.Alchemist).science).toBeGreaterThan(0);
+    expect(buildingYield(s, calm, alchemist, 1, Kind.Alchemist).gold).toBeLessThan(0);
   });
 });
 
