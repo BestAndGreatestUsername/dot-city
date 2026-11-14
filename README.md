@@ -36,7 +36,7 @@ Other commands: `npm test` (simulation tests), `npm run typecheck`, `npm run bui
 
   The menu tells you which you got. Every map is checked so all colonies can reach each other on foot.
 - **Landmarks worth expanding towards:** **Ancient Ruins** give a free discovery, and **Treasure** gives 150 gold, to whichever city grows onto them first. Each colony has ruins at the same distance from its tower, and the richest finds lie in the contested ground between colonies.
-- **Terrain:** forest is slow to grow into (×0.6), but every forest square cleared pays 3 gold of timber. Houses touching a mountain (a quarry) or water (a fishing village) earn 50% more. Water blocks armies; mountains slow them.
+- **Terrain:** forest is slow to grow into (×0.6), but every forest square cleared pays 3 gold of timber. Houses touching a mountain (a quarry) or water (a fishing village) earn 50% more. Water and mountains stop armies on foot: only **Sappers** can blast a way through rock, and **Bombers** fly over both. Every map is checked so each colony can walk to every other over open land; where it could not, a pass is carved through the hills or a causeway across the water.
 - You share the map with **5 rivals** by default (3, 5 or 7 in the menu). The map grows with the number of colonies, from 96x96 squares for four colonies to 112x112 for six and 128x128 for eight, and colonies start spread as far apart as the map allows.
 - Houses spread outward from your 2x2 Center Tower on their own. Each house earns gold; the tower adds a small base income.
 - Growth is deliberately slow, so every house counts. The bigger a city gets, the slower it grows: at 230 squares it grows at half speed, and it crawls past about 400. Cities settle at around 400 to 600 squares, so every square you convert matters.
@@ -64,7 +64,7 @@ Buildings sit in four tabs: **Economy** (`Z`), **Science** (`X`), **Defence** (`
 
 | Building | Unlocked by | What it does |
 | --- | --- | --- |
-| Wall | start | Cheap, tough barrier. Your own units walk over it. |
+| Wall | start | Cheap and very tough (750 health): it holds an army up for a long time. Your own units walk over it. |
 | Crossbow Tower | start | Shoots the nearest enemy in range. |
 | Ballista | research | Longest range; a huge bolt at the toughest enemy in sight. |
 | Flame Tower | research | Short range; scorches every enemy near it at once. |
@@ -72,8 +72,8 @@ Buildings sit in four tabs: **Economy** (`Z`), **Science** (`X`), **Defence** (`
 | Frost Tower | research | Chills every enemy in range: half speed, half the strikes. |
 | Lightning Tower | research | A bolt that leaps between up to five enemies. |
 | Shrine | research | Heals your squares, tower and units nearby. |
-| Bastion | research | A wall more than three times as tough. |
-| Thorn Wall | research | A tough wall (220 health) that cuts every enemy who strikes it for 6 damage. |
+| Bastion | research | A wall twice as tough again (1600 health). |
+| Thorn Wall | research | A tough wall (550 health) that cuts every enemy who strikes it for 6 damage. |
 | Cannon Tower | research | Long-range shells that blast whole groups. |
 | Obelisk | research | A beam that locks on and burns hotter the longer it holds. |
 
@@ -108,11 +108,12 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 | Stable | Knight | The hunter | Spots enemy units from 6 squares and rides them down; a charge hits three times as hard. | Poor against buildings. |
 | Siege Workshop | Catapult | The artillery | Boulders at buildings from 6 squares, beyond crossbow range. | Never fights units. |
 | Monastery | Monk | The healer | Heals the army around it. | Never fights. |
-| Powder House | Sapper | The demolisher | Blows apart the squares it reaches. | Dies doing it. |
+| Powder House | Sapper | The demolisher | The only unit that can blast a way through mountains; blows apart the squares it reaches. | Dies doing it. |
 | Giant's Lair | Giant | The juggernaut | Its stomp hits every enemy around it and crushes the buildings too. | One at a time; slow. |
 | Banner Hall | Standard Bearer | The inspiration | Every unit within 2.5 squares of a banner hits 25% harder and moves 15% faster. | Never fights. |
 
-- You give one order to the whole colony: **Hold** (units gather at their buildings) or **Attack** one rival.
+- You give one order to the whole colony: **Hold** or **Attack** one rival. On **Hold** your units defend: they gather at their buildings and go out after any enemy on or beside your land, up to 22 squares away.
+- Anything left alone for 8 seconds repairs itself: walls, towers and buildings 5% of their health a second, the Center Tower 1%.
 - Enemy squares are solid. Units go around or break through, whichever is quicker.
 - Units steer: they cut corners and move diagonally, turn smoothly, and keep a little room from each other, so a squad moves as a crowd, not a single file.
 - A group never piles onto one square: each square takes only as many attackers as it needs, and spare hounds go looking for another house.
@@ -126,16 +127,19 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 Everything you hear is synthesised in the browser (no audio files):
 
 - **Effects** for growth and building, every kind of shot (crossbow bolts, arrows, ballistas, spears, lightning, cannon booms, boulders, missiles), fire, frost and healing magic, melee clangs and heavy blows, deaths and collapsing buildings, loot, landmarks, discoveries, the start of each age, war horns, the tower alarm, victory and defeat. Effects come from where they happen: the further from your view, the quieter. Repeats are throttled so a big battle stays listenable.
-- **Music:** a chiptune piece for each age, with a tense battle layer while anyone is attacking you. It plays quieter while the game is paused.
-  - Medieval: a flute tune over a drone, with plucked strings and a frame drum.
-  - Gunpowder: a fife march with snare rolls.
-  - Industrial: a pulse lead over pumping bass, with rock drums.
-  - Modern: a synth lead with fast arpeggios and a four-on-the-floor beat.
+- **Music:** a 16-bar chiptune song for each age (your colony's age), with a verse, a big chorus with a harmony line, drum fills into each section, and a tense battle layer while anyone is attacking you. It plays quieter while the game is paused.
+  - Medieval (116 bpm): a galloping folk tune with a frame drum.
+  - Gunpowder (124 bpm): a fife march over snare rolls.
+  - Industrial (130 bpm): a driving rock riff over pumping bass.
+  - Modern (138 bpm): a synth anthem with fast arpeggios and a four-on-the-floor beat.
+- **Screen shake** is gentle: a few pixels at most, fading fast.
 - **Volume:** MUSIC and SOUND in the menu (`M`), in steps of 25%, remembered between visits. Sound starts on your first click, as browsers require.
 
 ### The ages
 
-Time moves on: **Medieval** (the start, with its magic: Frost and Lightning Towers, the Obelisk, the Shrine, monks and giants), **Gunpowder** at 4 minutes, **Industrial** at 9 and **Modern** at 14. Research offers only what the current age (or an earlier one) knows. When an age begins, everyone gets a **breakthrough**: a free discovery chosen only from that age's buildings. In the Modern age everyone also learns Anti-Air, so nobody is helpless against bombers.
+Each colony moves through the ages on its own, by how many discoveries it has made: **Medieval** (the start, with its magic: Frost and Lightning Towers, the Obelisk, the Shrine, monks and giants), **Gunpowder** at 3 discoveries, **Industrial** at 6 and **Modern** at 9. Entering an age brings a **breakthrough**: a free discovery chosen only from that age's buildings (it counts towards the next age, so in practice that is 3, 5 and 7 discoveries of your own). Medieval usually lasts about 10 minutes. Research offers only what your age (or an earlier one) knows. The colony list shows each colony's age.
+
+Anti-air only matters once there is something in the sky: the moment anyone builds an **Airfield**, every colony learns the **AA Battery**, and a message says so.
 
 | Age | Building | Its one job |
 | --- | --- | --- |
@@ -149,17 +153,17 @@ Time moves on: **Medieval** (the start, with its magic: Frost and Lightning Towe
 | Modern | Airfield → Bombers | Fly over walls and water to bomb the most valuable building of the colony you attack. Only AA Batteries and Center Towers can hit them. |
 | Modern | AA Battery | The only tower that shoots aircraft; it shoots nothing else. |
 | Modern | Power Plant | Money buildings within 3 squares earn 50% more. |
-| Modern | Missile Silo | Every 45 seconds it strikes the enemy's most valuable building anywhere on the map. |
+| Modern | Missile Silo | Every 45 seconds it strikes a random building (not a house) of the colony your army is attacking, anywhere on the map; on Hold, of the nearest rival. |
 
 Giants now have a thick hide (they take 60% of ordinary damage); ballista bolts and musket balls pierce armour.
 
 ### Research
 
-- Science fills a bar. The first discovery costs 35 science and each one after costs 30% more.
-- A discovery pauses the game and offers **two choices**. The game resumes once you take one.
+- Science fills a bar. The first discovery costs 40 science and each one after costs 50% more, so in a game you get a handful of discoveries, not all of them: **every colony specialises** in a few towers and units. (Watching six AI rivals: the first discovery comes around 5 minutes with one research building, and by 15 minutes each has 5 to 8, with an army of two to four unit types.)
+- A discovery pauses the game and offers **two choices**, each showing its price and what it earns (gold or science a minute). Or take neither: **+8% city growth**, for good (it does not count towards the next age). The game resumes once you choose.
 - Almost every choice is a **new building**. About one choice in ten is a **rare modifier**, which always affects everything of a kind: "all units move 10% faster", "all towers reload 15% faster", "all gold income +10%". No modifier ever applies to just one unit or tower type.
 - There are 16 modifiers: Forced March, Whetstones, Masonry, Trade Routes, Scribes, Architects, Chainmail, Drill Sergeants, Engineering, Clockwork, Roads, Battering Rams, Conscription, Artillery, Citadel and Golden Age.
-- **It is not a tree.** Every building can turn up from the very first discovery; what you take shapes your playstyle. (Tiers still exist in the tuning, `tier2Picks`/`tier3Picks`, but are switched off.)
+- **It is not a tree.** Any building of your age can turn up; what you take shapes your playstyle. (Tiers still exist in the tuning, `tier2Picks`/`tier3Picks`, but are switched off.)
 - Money and science buildings, and the gold and science modifiers, are rarer than the rest: about a third as likely as any other option.
 - A re-roll costs 50 gold.
 - The colony list shows how many technologies each colony has (`3T`). Hover it to see a rival's playstyle and what it discovered. A toast tells you when a rival unlocks one of the big buildings.
@@ -178,7 +182,8 @@ Every rival is run by an AI under the same rules and prices as you. Each follows
 | Merchant | Gets rich first, then buys giants, knights and cannons. | ~8 min |
 
 - It goes for the research its playstyle wants, builds what it unlocks, and spends spare gold on more towers and army.
-- It sets out once its army is ready, or earlier if it badly outnumbers the target. It favours the leading colony, close and weakly defended colonies, colonies whose army is away, and whoever attacked it.
+- Nobody attacks in the first 100 seconds. After that a rival sets out as soon as its army is ready, or earlier if it badly outnumbers the target, so an early army gets used early.
+- **It hits back.** A rival remembers who attacked it for 3 minutes and usually goes after them, setting out with only half an army if it must. Otherwise it favours the leading colony, close and weakly defended colonies, and colonies whose army is away.
 - It finishes off a tower that is about to fall, falls back when beaten or when home is in danger, and builds new towers on the side the enemy comes from.
 - **Late game:** once its city is fully covered it keeps adding towers in layers (up to a cap), a rich rival buys its strongest unlocked towers and units and keeps more army buildings, it answers a heavily fortified enemy with siege units (catapults, sappers, giants, spearmen, shields), and after 15 minutes it attacks with a smaller share of its full army, so the pressure keeps coming.
 - `LEVEL` sets the difficulty: **Normal** (rivals attack 20% later), **Hard** (the default; rivals earn 25% more) or **Brutal** (they earn 50% more and attack 20% sooner). Changing it restarts the game.

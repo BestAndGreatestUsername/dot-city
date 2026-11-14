@@ -79,7 +79,7 @@ export const COLONY: ColonyColors[] = [
   { name: 'Amber', main: '#e6a92e', dark: '#a6721a', light: '#ffdc7c' },
   { name: 'Violet', main: '#9659cc', dark: '#643a92', light: '#d0a2f6' },
   { name: 'Jade', main: '#3fae5f', dark: '#25713c', light: '#97e6a8' },
-  { name: 'Rose', main: '#e0609e', dark: '#9a3a6a', light: '#ffb0d4' },
+  { name: 'Ivory', main: '#e9e3cf', dark: '#9c9580', light: '#ffffff' },
   { name: 'Teal', main: '#2aa8b0', dark: '#1b6d73', light: '#8be4ea' },
   { name: 'Coal', main: '#5a5f74', dark: '#383b4b', light: '#a6abc2' },
 ];

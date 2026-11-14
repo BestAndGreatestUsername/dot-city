@@ -27,7 +27,7 @@ import { damageCell, healthAt, isActive } from './health';
 import { passableFor, solidFor, terrainSpeed } from './nav';
 import { buildBlocks, forEachNearby, type Blocks } from './spatial';
 import { cellAt, cellOfPoint, deltaX, deltaY, dist, step as neighbour, wrapPoint } from './topo';
-import { Kind, UnitType, type Colony, type GameState, type SimEvent, type Tuning, type Unit, type UnitTuning } from './types';
+import { Kind, Terrain, UnitType, type Colony, type GameState, type SimEvent, type Tuning, type Unit, type UnitTuning } from './types';
 
 /** D13: every finished army building keeps a fixed number of units alive, for free. */
 export function stepProduction(s: GameState, t: Tuning): void {
@@ -431,6 +431,26 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
   const isFree = (c: number, damage: number) => (claims.get(c) ?? 0) < Math.max(1, Math.ceil(healthAt(s, c) / (damage * 5)));
   const claim = (c: number) => claims.set(c, (claims.get(c) ?? 0) + 1);
 
+  // Intruders: enemy ground units standing on or right beside each colony's land. A colony on
+  // Hold sends its units after them, wherever on its land they are.
+  const intruders = new Map<number, Unit[]>();
+  for (const v of s.units) {
+    if (v.hp <= 0 || unitTuning(t, v.type).flies) continue;
+    const here = cellOfPoint(s, v.x, v.y);
+    if (here < 0) continue;
+    let marked = 0;
+    for (let d = -1; d < 4; d++) {
+      const n = d < 0 ? here : neighbour(s, here, d);
+      if (n < 0) continue;
+      const o = s.owner[n];
+      if (o === 0 || o === v.owner || (marked & (1 << o)) !== 0) continue;
+      marked |= 1 << o;
+      const list = intruders.get(o);
+      if (list) list.push(v);
+      else intruders.set(o, [v]);
+    }
+  }
+
   for (const u of s.units) {
     if (u.hp <= 0) continue;
     const def = unitTuning(t, u.type);
@@ -565,6 +585,23 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
           continue;
         }
       }
+      // On Hold: defend the land. Any intruder on or beside our squares, within reach, is hunted down.
+      if (!enemy && colony.order === 0 && s.tick >= (u.noChaseUntil ?? 0)) {
+        let target: Unit | null = null;
+        let nearest = t.combat.defendRange;
+        for (const v of intruders.get(u.owner) ?? []) {
+          if (v.hp <= 0) continue;
+          const d = dist(s, u.x, u.y, v.x, v.y);
+          if (d < nearest) {
+            nearest = d;
+            target = v;
+          }
+        }
+        if (target) {
+          if (moveToward(s, t, u, target.x, target.y, speed, separation(s, blocks, u))) continue;
+          u.noChaseUntil = s.tick + CHASE_PAUSE_TICKS;
+        }
+      }
     }
 
     // 2. Otherwise follow the colony's order.
@@ -613,7 +650,13 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
       }
     }
 
-    const field = attacking ? (u.type === UnitType.Hound && colony.nav.raid ? colony.nav.raid : colony.nav.tower) : colony.nav.home;
+    const field = attacking
+      ? u.type === UnitType.Hound && colony.nav.raid
+        ? colony.nav.raid
+        : u.type === UnitType.Sapper && colony.nav.rock
+          ? colony.nav.rock
+          : colony.nav.tower
+      : colony.nav.home;
     if (!field) continue;
     const here = field[cell];
     if (here === Infinity) continue;
@@ -649,6 +692,24 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
     // Sapper: the moment it reaches the enemy's squares, it lights the fuse.
     if (u.type === UnitType.Sapper) {
       const touching = [0, 1, 2, 3].map((d) => neighbour(s, cell, d)).find((n) => n >= 0 && s.owner[n] === colony.order);
+      // A mountain in the way: blast it into open ground.
+      if (attacking && touching === undefined && s.terrain[best] === Terrain.Mountain) {
+        const radius = def.splash ?? 1;
+        const bx = (best % w) + 0.5;
+        const by = ((best / w) | 0) + 0.5;
+        for (let dy = -Math.ceil(radius); dy <= Math.ceil(radius); dy++) {
+          for (let dx = -Math.ceil(radius); dx <= Math.ceil(radius); dx++) {
+            const c = cellAt(s, Math.floor(bx) + dx, Math.floor(by) + dy);
+            if (c < 0 || s.terrain[c] !== Terrain.Mountain || Math.hypot(dx, dy) > radius) continue;
+            s.terrain[c] = Terrain.Grass;
+            events.push({ type: 'terrain', cell: c });
+          }
+        }
+        s.navDirty = true;
+        events.push({ type: 'blast', x: bx, y: by, radius, style: 'cannon' });
+        u.hp = 0;
+        continue;
+      }
       const at = touching ?? (solidFor(s, best, u.owner) ? best : -1);
       if (attacking && at >= 0) {
         // The charge goes off against the square it reached.

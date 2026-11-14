@@ -16,7 +16,8 @@ import { isProducer, towerRange, unitMaxHp, unitTuning, unlockTuning } from './c
 import { isActive, maxHealthAt, towerMaxHealth } from './health';
 import { buildBlocks, forEachNearby, type Blocks } from './spatial';
 import { cellAt, dist } from './topo';
-import { blastSquares, mostValuableBuilding } from './units';
+import { nextInt } from './rng';
+import { blastSquares } from './units';
 import { Kind, TOWER_SIZE, type Colony, type GameState, type SimEvent, type Tuning, type Unit } from './types';
 
 /** Reload multiplier from the colony's finished Bell Towers that reach this point (they do not stack). */
@@ -233,8 +234,7 @@ export function stepDefences(s: GameState, t: Tuning, events: SimEvent[]): void 
         break;
       }
       case Kind.MissileSilo: {
-        // A missile at the most valuable building of the colony at war with (or else the
-        // nearest rival), anywhere on the map.
+        // A missile at the colony your army is attacking (or else the nearest rival), anywhere on the map.
         if (!spec) break;
         let enemy = colony.order > 0 && s.colonies[colony.order - 1].alive ? s.colonies[colony.order - 1] : null;
         if (!enemy) {
@@ -249,8 +249,11 @@ export function stepDefences(s: GameState, t: Tuning, events: SimEvent[]): void 
           }
         }
         if (!enemy) break;
-        const aim = mostValuableBuilding(s, t, enemy.id);
-        if (aim < 0) break;
+        // Any one of that colony's buildings, at random: you never know where the next one lands.
+        const targets: number[] = [];
+        for (let k = 0; k < s.kind.length; k++) if (s.owner[k] === enemy.id && s.kind[k] !== Kind.House) targets.push(k);
+        if (targets.length === 0) break;
+        const aim = targets[nextInt(s, targets.length)];
         const tx = (aim % w) + 0.5;
         const ty = ((aim / w) | 0) + 0.5;
         blastSquares(s, t, owner, tx, ty, spec.splash ?? 1, (spec.damage ?? 0) * m.towerDamage, events);

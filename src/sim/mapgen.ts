@@ -409,18 +409,24 @@ export function generateMap(seed: number, t: Tuning, colonies: number, size = t.
     }
   }
 
-  // 3. Everyone must be able to reach everyone on foot: where water cuts a colony off, lay a
-  // causeway of land straight towards the first colony.
+  // 3. Everyone must be able to reach everyone over open land (grass or forest): armies march
+  // at full pace and cities can grow towards each other. Wherever mountains or water wall a
+  // colony off, carve the cheapest way through: a mountain pass or a causeway, two squares wide,
+  // following open ground wherever it can.
+  const isOpen = (c: number) => terrain[c] === Terrain.Grass || terrain[c] === Terrain.Forest;
+  const neighbours = (c: number) => {
+    const x = c % w;
+    const y = (c / w) | 0;
+    return [at(x, y - 1), at(x + 1, y), at(x, y + 1), at(x - 1, y)];
+  };
   const reach = () => {
     const seen = new Uint8Array(n);
     const stack = [towers[0]];
     seen[towers[0]] = 1;
     while (stack.length > 0) {
       const c = stack.pop() as number;
-      const x = c % w;
-      const y = (c / w) | 0;
-      for (const nb of [at(x, y - 1), at(x + 1, y), at(x, y + 1), at(x - 1, y)]) {
-        if (nb < 0 || seen[nb] || terrain[nb] === Terrain.Water) continue;
+      for (const nb of neighbours(c)) {
+        if (nb < 0 || seen[nb] || !isOpen(nb)) continue;
         seen[nb] = 1;
         stack.push(nb);
       }
@@ -430,21 +436,58 @@ export function generateMap(seed: number, t: Tuning, colonies: number, size = t.
   let seen = reach();
   for (let i = 1; i < towers.length; i++) {
     if (seen[towers[i]]) continue;
-    const ax = towers[i] % w;
-    const ay = (towers[i] / w) | 0;
-    const bx = towers[0] % w;
-    const by = (towers[0] / w) | 0;
-    let dx = bx - ax;
-    let dy = by - ay;
-    if (wrap) {
-      if (Math.abs(dx) > w / 2) dx -= Math.sign(dx) * w;
-      if (Math.abs(dy) > h / 2) dy -= Math.sign(dy) * h;
+    // Dijkstra from this tower to the nearest reached square: open land is cheap, rock and
+    // water dear, so the carved stretch is as short as it can be.
+    const cost = new Float32Array(n).fill(Infinity);
+    const from = new Int32Array(n).fill(-1);
+    const queue: Array<[number, number]> = [[0, towers[i]]];
+    cost[towers[i]] = 0;
+    let goal = -1;
+    while (queue.length > 0) {
+      // A small binary heap, by cost.
+      const [d, c] = queue[0];
+      const last = queue.pop() as [number, number];
+      if (queue.length > 0) {
+        queue[0] = last;
+        let k = 0;
+        for (;;) {
+          const l = 2 * k + 1;
+          const r = l + 1;
+          let m = k;
+          if (l < queue.length && queue[l][0] < queue[m][0]) m = l;
+          if (r < queue.length && queue[r][0] < queue[m][0]) m = r;
+          if (m === k) break;
+          [queue[k], queue[m]] = [queue[m], queue[k]];
+          k = m;
+        }
+      }
+      if (d > cost[c]) continue;
+      if (seen[c]) {
+        goal = c;
+        break;
+      }
+      for (const nb of neighbours(c)) {
+        if (nb < 0) continue;
+        const step = isOpen(nb) ? 1 : terrain[nb] === Terrain.Mountain ? 6 : 8;
+        const nd = d + step;
+        if (nd >= cost[nb]) continue;
+        cost[nb] = nd;
+        from[nb] = c;
+        queue.push([nd, nb]);
+        let k = queue.length - 1;
+        while (k > 0) {
+          const p = (k - 1) >> 1;
+          if (queue[p][0] <= queue[k][0]) break;
+          [queue[p], queue[k]] = [queue[k], queue[p]];
+          k = p;
+        }
+      }
     }
-    const steps = Math.max(Math.abs(dx), Math.abs(dy));
-    for (let k = 0; k <= steps; k++) {
-      const x = Math.round(ax + (dx * k) / steps);
-      const y = Math.round(ay + (dy * k) / steps);
-      for (const c of [at(x, y), at(x + 1, y)]) if (c >= 0 && terrain[c] === Terrain.Water) terrain[c] = Terrain.Grass;
+    // Carve the way back from the goal: rock and water on it (and beside it) become open ground.
+    for (let c = goal; c >= 0; c = from[c]) {
+      const x = c % w;
+      const y = (c / w) | 0;
+      for (const k of [c, at(x + 1, y), at(x, y + 1)]) if (k >= 0 && !isOpen(k)) terrain[k] = Terrain.Grass;
     }
     seen = reach();
   }

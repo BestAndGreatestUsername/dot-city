@@ -566,14 +566,19 @@ describe('the later ages: every new thing has its own job', () => {
     expect(gold(true)).toBeCloseTo(gold(false) * (1 + (calm.unlockables.power.boost ?? 0)));
   });
 
-  it('a missile silo strikes the most valuable enemy building anywhere on the map', () => {
+  it('a missile silo strikes a random building of the colony your army attacks, anywhere on the map', () => {
     const s = board();
     s.colonies[0].order = 2;
     place(s, 3, 9, 1, Kind.MissileSilo);
-    const prize = place(s, 34, 2, 2, Kind.Cannon);
+    place(s, 34, 2, 2, Kind.Cannon);
     const events = run(s, Math.round((calm.combat.buildSeconds + 1) * calm.tickRate));
-    expect(events.some((e) => e.type === 'shot' && e.style === 'missile')).toBe(true);
-    expect(s.kind[prize] !== Kind.Cannon || s.hp[prize] < calm.unlockables.cannon.health).toBe(true);
+    const missile = events.find((e) => e.type === 'shot' && e.style === 'missile');
+    expect(missile).toBeDefined();
+    // It landed on one of the target colony's buildings.
+    if (missile && missile.type === 'shot') {
+      const c = at(Math.floor(missile.x1), Math.floor(missile.y1));
+      expect([Kind.Tower, Kind.Cannon, Kind.Rubble]).toContain(s.kind[c]);
+    }
   });
 });
 
@@ -675,13 +680,18 @@ describe('every unit has its own role', () => {
 });
 
 describe('the AI uses its research', () => {
-  it('in a long match rivals unlock and build new towers, money and science buildings and army buildings', () => {
+  it('in a long match rivals specialise: a handful of discoveries each, and they build what they unlock', () => {
     const s = createGame({ seed: 77, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], aiAttacks: false });
     for (let i = 0; i < 12000; i++) step(s, tuning, []);
+    for (const colony of s.colonies.slice(1)) {
+      // A few discoveries, not the whole catalogue: each colony is its own mix.
+      expect(colony.unlocked.length).toBeGreaterThanOrEqual(2);
+      expect(colony.unlocked.length).toBeLessThanOrEqual(12);
+      expect(colony.unlocked.some((k) => colony.counts[k] > 0)).toBe(true);
+    }
+    // Between them, the rivals field new army buildings and new towers.
     const all = (kinds: number[]) => s.colonies.slice(1).reduce((n, c) => n + kinds.reduce((m, k) => m + c.counts[k], 0), 0);
-    expect(all([Kind.Ballista, Kind.Flame, Kind.Frost, Kind.Lightning, Kind.Cannon, Kind.Obelisk, Kind.Bell, Kind.Shrine])).toBeGreaterThan(0);
-    expect(all([Kind.Mine, Kind.Fishery, Kind.Market, Kind.Bank, Kind.Library, Kind.Observatory, Kind.Academy])).toBeGreaterThan(0);
-    expect(all(PRODUCERS.filter((k) => k !== Kind.Camp))).toBeGreaterThan(0);
+    expect(all(PRODUCERS.filter((k) => k !== Kind.Camp)) + all([Kind.Ballista, Kind.Flame, Kind.Frost, Kind.Lightning, Kind.Cannon, Kind.Obelisk, Kind.MachineGun])).toBeGreaterThan(0);
     // It never builds what it has not unlocked.
     for (const colony of s.colonies.slice(1)) {
       for (const kind of Object.keys(UNLOCK_KEY).map(Number)) if (colony.counts[kind] > 0) expect(isLocked(colony, kind)).toBe(false);

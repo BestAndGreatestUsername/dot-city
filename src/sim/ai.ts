@@ -770,7 +770,7 @@ function towerCentre(s: GameState, colony: Colony): [number, number] {
  *   - its army is away attacking someone else, so its home is open;
  *   - not already being attacked by too many others.
  */
-export function chooseTarget(s: GameState, t: Tuning, colony: Colony, aggressor: number): number {
+export function chooseTarget(s: GameState, t: Tuning, colony: Colony, aggressor: number, grudge = 0): number {
   const [tx, ty] = towerCentre(s, colony);
   let best = 0;
   let bestScore = -Infinity;
@@ -792,7 +792,7 @@ export function chooseTarget(s: GameState, t: Tuning, colony: Colony, aggressor:
     const lead = Math.max(0, Math.min(1.5, colonySize(other) / Math.max(1, average) - 1));
     const away = other.order > 0 && other.order !== colony.id ? 0.8 : 0;
     const score =
-      40 / (10 + far) + 6 / (4 + defence) + (other.id === aggressor ? 1.5 : 0) + 2 * lead + away - 0.3 * Math.max(0, others - 1) + 0.3 * nextFloat(s);
+      40 / (10 + far) + 6 / (4 + defence) + (other.id === aggressor ? 2 : 0) + (other.id === grudge ? 5 : 0) + 2 * lead + away - 0.3 * Math.max(0, others - 1) + 0.3 * nextFloat(s);
     if (score > bestScore) {
       bestScore = score;
       best = other.id;
@@ -827,6 +827,16 @@ export function militaryOrder(s: GameState, t: Tuning, colony: Colony): Command 
     }
   }
 
+  // Anyone who sends their army at us earns a grudge: we will usually answer them first.
+  for (const other of s.colonies) {
+    if (other.alive && other.id !== colony.id && other.order === colony.id) {
+      colony.grudge = other.id;
+      colony.grudgeUntil = s.tick + Math.round(a.grudgeSeconds * t.tickRate);
+      if (aggressor === 0) aggressor = other.id;
+    }
+  }
+  const grudge = colony.grudgeUntil > s.tick && s.colonies[colony.grudge - 1]?.alive ? colony.grudge : 0;
+
   const style = doctrineOf(colony);
   if (colony.order > 0) {
     const victim = s.colonies[colony.order - 1];
@@ -838,17 +848,20 @@ export function militaryOrder(s: GameState, t: Tuning, colony: Colony): Command 
     return null;
   }
 
-  const delay = style.attackAfter * (a.levelAttackDelay[s.aiLevel] ?? 1);
-  if (!s.aiAttacks || s.tick < delay * t.tickRate) return null;
+  // No fixed hour for war: after a short grace, a rival marches as soon as its army is ready.
+  const grace = a.graceSeconds * (a.levelAttackDelay[s.aiLevel] ?? 1);
+  if (!s.aiAttacks || s.tick < grace * t.tickRate) return null;
   // With intruders at the gates the army stays home.
   if (threat >= a.recallThreat) return null;
   if (strength < a.attackMinStrength) return null;
-  const target = chooseTarget(s, t, colony, aggressor);
+  const target = chooseTarget(s, t, colony, aggressor, grudge);
   if (target === 0) return null;
   // Set out once the army is ready, or at once if it badly outnumbers the target's defence.
   // Late in the game every playstyle stops waiting for a perfect army and keeps up the pressure.
   const lateGame = s.tick >= a.lateGameSeconds * t.tickRate;
-  const ready = strength >= armyCapacity(t, colony) * (lateGame ? Math.min(style.readyShare, 0.6) : style.readyShare);
+  // Hitting back at an attacker needs less of a full army.
+  const share = grudge === target ? Math.min(style.readyShare, 0.5) : lateGame ? Math.min(style.readyShare, 0.6) : style.readyShare;
+  const ready = strength >= armyCapacity(t, colony) * share;
   const overwhelming = strength >= 2 * defenceOf(s, t, s.colonies[target - 1]);
   if (!ready && !overwhelming) return null;
   colony.launchStrength = strength;

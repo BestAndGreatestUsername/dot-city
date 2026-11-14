@@ -7,7 +7,8 @@ import { isLocked } from './catalog';
 import { stepGrowth } from './growth';
 import { isMilitary, maxHealthAt, stepStructures } from './health';
 import { refreshLinks } from './link';
-import { applyChoice, rollOffer, stepResearch, ageAt } from './research';
+import { stepRegen } from './health';
+import { applyChoice, rollOffer, stepResearch } from './research';
 import { refreshNav } from './nav';
 import { addPending, ownFarmNeighbours, refreshAround } from './state';
 import { Kind, type Command, type GameState, type SimEvent, type Tuning } from './types';
@@ -75,7 +76,7 @@ export function applyCommand(s: GameState, t: Tuning, cmd: Command, events: SimE
   }
 
   if (cmd.type === 'research') {
-    if (!applyChoice(s, colony, cmd.choice, events)) return false;
+    if (!applyChoice(s, t, colony, cmd.choice, events)) return false;
     // More draws banked: lay out the next offer at once, so choosing works while paused too.
     if (colony.pendingDraws > 0) {
       const offer = rollOffer(s, t, colony);
@@ -97,23 +98,18 @@ export function applyCommand(s: GameState, t: Tuning, cmd: Command, events: SimE
 
 /** Advance the world by exactly one fixed tick. */
 export function step(s: GameState, t: Tuning, events: SimEvent[]): void {
-  const age = ageAt(t, s.tick);
-  if (age > s.age) {
-    s.age = age;
-    // A breakthrough for every colony: a free discovery from the new age's buildings.
-    for (const colony of s.colonies) {
-      if (!colony.alive) continue;
-      colony.pendingDraws++;
-      colony.ageOffer = age;
-      // Aircraft can only be shot down by anti-air, so in the Modern age everyone knows how to
-      // build it: nobody is left defenceless by an unlucky draw.
-      if (age === t.ages.length && !colony.unlocked.includes(Kind.AABattery)) {
-        colony.unlocked.push(Kind.AABattery);
-        colony.picks.push('aa');
+  // The first Airfield anywhere: every colony learns Anti-Air, the one answer to aircraft.
+  if (!s.airborne) {
+    const flier = s.colonies.find((c) => c.alive && c.counts[Kind.Airfield] > 0);
+    if (flier) {
+      s.airborne = true;
+      for (const colony of s.colonies) {
+        if (!colony.unlocked.includes(Kind.AABattery)) colony.unlocked.push(Kind.AABattery);
       }
+      events.push({ type: 'airborne', owner: flier.id });
     }
-    events.push({ type: 'age', age });
   }
+  stepRegen(s, t);
   if (s.bots.length > 0) for (const cmd of aiCommands(s, t)) applyCommand(s, t, cmd, events);
   refreshLinks(s);
   stepGrowth(s, t, events);

@@ -517,6 +517,65 @@ describe('the builder AI', () => {
   }, 300000);
 });
 
+describe('stone, hold and grudges', () => {
+  it('mountains stop ground units, but a sapper blasts a way through', () => {
+    const s = arena();
+    const rock = 6 * W + 20;
+    s.terrain[rock] = Terrain.Mountain;
+    expect(passableFor(s, rock, 1)).toBe(false);
+    // A wall of rock across the whole arena between the sapper and the enemy.
+    for (let y = 0; y < s.height; y++) s.terrain[y * W + 20] = Terrain.Mountain;
+    s.colonies[0].order = 2;
+    spawn(s, 1, UnitType.Sapper, 18.5, 6.5);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 200; i++) step(s, calm, events);
+    expect(events.some((e) => e.type === 'terrain')).toBe(true);
+    let open = 0;
+    for (let y = 0; y < s.height; y++) if (s.terrain[y * W + 20] !== Terrain.Mountain) open++;
+    expect(open).toBeGreaterThan(0);
+  });
+
+  it('on Hold, units go out to fight intruders anywhere on their land', () => {
+    const s = arena();
+    // A row of houses far from the barracks, and an intruder chewing on it.
+    for (let x = 4; x < 16; x++) placeHouse(s, x, 8, 1);
+    const defender = spawn(s, 1, UnitType.Warrior, 4.5, 2.5);
+    const intruder = spawn(s, 2, UnitType.Warrior, 15.5, 7.5);
+    intruder.hp = 1000;
+    s.colonies[0].order = 0;
+    const start = Math.hypot(defender.x - 15.5, defender.y - 7.5);
+    for (let i = 0; i < 40; i++) {
+      step(s, calm, []);
+      // The intruder stays put, chewing on the houses.
+      intruder.x = 15.5;
+      intruder.y = 7.5;
+    }
+    expect(Math.hypot(defender.x - 15.5, defender.y - 7.5)).toBeLessThan(start - 2);
+  });
+
+  it('rivals hit back at whoever is attacking them', () => {
+    const s = createGame({ seed: 12, model: 'local', colonies: 5, tuning, bots: [2, 3, 4, 5] });
+    const rival = s.colonies[1];
+    // Colony 4 is attacking our rival: the rival should pick it as its target.
+    s.colonies[3].order = rival.id;
+    s.tick = 2000;
+    militaryOrder(s, calm, rival);
+    expect(rival.grudge).toBe(4);
+    expect(chooseTarget(s, calm, rival, 0, rival.grudge)).toBe(4);
+  });
+
+  it('a discovery card can be traded for faster city growth instead', () => {
+    const s = createGame({ seed: 12, model: 'local', colonies: 2, tuning });
+    const colony = s.colonies[0];
+    colony.offer = ['ballista', 'flame'];
+    colony.pendingDraws = 1;
+    expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: 2 }, [])).toBe(true);
+    expect(colony.mods.growth).toBeCloseTo(1 + calm.research.growthChoice);
+    expect(colony.picks.length).toBe(0); // not a discovery: no step towards the next age
+    expect(colony.offer).toBeNull();
+  });
+});
+
 describe('plunder', () => {
   it("whoever takes a tower shares half its colony's gold; bystanders get nothing", () => {
     const s = createEmptyState(40, 12, 3, 'local');
@@ -561,8 +620,9 @@ describe('the AI at war', () => {
     const { s, orders, hits } = war(2026, 9000);
     const attacks = orders.filter((o) => o.target !== 0);
     expect(attacks.length).toBeGreaterThan(0);
-    // Never before its playstyle's grace period is over.
-    for (const o of attacks) expect(o.tick).toBeGreaterThanOrEqual(doctrineOf(s.colonies[o.owner - 1]).attackAfter * tuning.tickRate);
+    // Never before the short grace period is over; after it, whenever an army is ready.
+    for (const o of attacks) expect(o.tick).toBeGreaterThanOrEqual(tuning.ai.graceSeconds * tuning.ai.levelAttackDelay[s.aiLevel] * tuning.tickRate);
+    void doctrineOf;
     // Nobody attacks themselves or a colony that does not exist.
     for (const o of attacks) {
       expect(o.target).not.toBe(o.owner);

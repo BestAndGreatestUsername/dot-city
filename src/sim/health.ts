@@ -102,6 +102,29 @@ export function destroyCell(s: GameState, t: Tuning, c: number, events: SimEvent
   events.push({ type: 'destroy', cell: c, owner, kind });
 }
 
+/**
+ * Regeneration: once a square has gone untouched for a few seconds, it mends, a share of its full health each second. Houses, walls, towers and every
+ * building alike; the Center Tower more slowly. (Worked out once a second.)
+ */
+export function stepRegen(s: GameState, t: Tuning): void {
+  if (s.tick % t.tickRate !== 0) return;
+  const quiet = s.tick - Math.round(t.combat.regenDelaySeconds * t.tickRate);
+  for (let c = 0; c < s.kind.length; c++) {
+    const owner = s.owner[c];
+    if (owner === 0 || s.lastHit[c] > quiet || s.tick < s.readyTick[c]) continue;
+    const kind = s.kind[c];
+    if (kind === Kind.Tower) continue;
+    const full = maxHealthAt(s, t, c);
+    if (s.hp[c] < full) s.hp[c] = Math.min(full, s.hp[c] + full * t.combat.regenPerSecond);
+  }
+  for (const colony of s.colonies) {
+    if (!colony.alive) continue;
+    if (colony.towerCells.some((c) => s.lastHit[c] > quiet)) continue;
+    const full = towerMaxHealth(t, colony);
+    if (colony.towerHp < full) colony.towerHp = Math.min(full, colony.towerHp + full * t.combat.towerRegenPerSecond);
+  }
+}
+
 /** D16: the tower has fallen. Units die and every square becomes rubble that clears later. */
 export function defeatColony(s: GameState, t: Tuning, colony: Colony, events: SimEvent[]): void {
   if (!colony.alive) return;
@@ -153,6 +176,7 @@ export function damageCell(s: GameState, t: Tuning, c: number, amount: number, e
   const owner = s.owner[c];
   if (owner === 0) return false;
   events.push({ type: 'hit', cell: c });
+  s.lastHit[c] = s.tick;
   if (s.kind[c] === Kind.Tower) {
     const colony = s.colonies[owner - 1];
     colony.towerHp -= amount;

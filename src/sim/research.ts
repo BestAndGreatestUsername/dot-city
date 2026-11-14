@@ -25,6 +25,8 @@ export interface ResearchOption {
   unlock?: string;
   /** The age (1 Medieval, 2 Gunpowder, 3 Industrial, 4 Modern) from which it can be discovered. */
   age?: number;
+  /** Never offered: granted by the game itself (Anti-Air, once anyone flies). */
+  auto?: boolean;
 }
 
 export const RESEARCH: ResearchOption[] = researchJson as ResearchOption[];
@@ -48,11 +50,14 @@ export function openTier(t: Tuning, colony: Colony): number {
   return 1;
 }
 
-/** The age the game has reached at this tick: 1 Medieval, 2 Gunpowder, 3 Industrial, 4 Modern. */
-export function ageAt(t: Tuning, tick: number): number {
+/**
+ * The age a colony has reached with this many discoveries: 1 Medieval, 2 Gunpowder,
+ * 3 Industrial, 4 Modern. Each colony moves through the ages at its own pace.
+ */
+export function ageFor(t: Tuning, discoveries: number): number {
   let age = 1;
   t.ages.forEach((a, i) => {
-    if (tick >= a.startSeconds * t.tickRate) age = i + 1;
+    if (discoveries >= a.discoveries) age = i + 1;
   });
   return age;
 }
@@ -63,8 +68,8 @@ export function ageAt(t: Tuning, tick: number): number {
  */
 export function offerPool(t: Tuning, colony: Colony, s?: GameState): ResearchOption[] {
   const tier = openTier(t, colony);
-  const age = s ? s.age : 99;
-  return RESEARCH.filter((o) => o.tier <= tier && (o.age ?? 1) <= age && !colony.picks.includes(o.id));
+  const age = s ? colony.age : 99;
+  return RESEARCH.filter((o) => !o.auto && o.tier <= tier && (o.age ?? 1) <= age && !colony.picks.includes(o.id));
 }
 
 /** Options that add income: money and science buildings, and the modifiers that raise gold or science. */
@@ -122,8 +127,16 @@ export function rollOffer(s: GameState, t: Tuning, colony: Colony): string[] {
 }
 
 /** Take one option from the current offer. */
-export function applyChoice(s: GameState, colony: Colony, index: number, events: SimEvent[]): boolean {
-  if (!colony.offer || index < 0 || index >= colony.offer.length) return false;
+export function applyChoice(s: GameState, t: Tuning, colony: Colony, index: number, events: SimEvent[]): boolean {
+  if (!colony.offer || index < 0 || index > colony.offer.length) return false;
+  // The choice after the last option: no discovery, but a faster-growing city instead. It does
+  // not count towards the next age.
+  if (index === colony.offer.length) {
+    colony.mods.growth += t.research.growthChoice;
+    colony.pendingDraws--;
+    colony.offer = null;
+    return true;
+  }
   const option = researchOption(colony.offer[index]);
   const mods = colony.mods as unknown as Record<string, number>;
   for (const e of option.effects) {
@@ -145,6 +158,14 @@ export function applyChoice(s: GameState, colony: Colony, index: number, events:
   colony.pendingDraws--;
   colony.offer = null;
   events.push({ type: 'research', owner: colony.id, id: option.id });
+  // Enough discoveries open the next age, with a breakthrough: a free discovery from it.
+  const age = ageFor(t, colony.picks.length);
+  if (age > colony.age) {
+    colony.age = age;
+    colony.pendingDraws++;
+    colony.ageOffer = age;
+    events.push({ type: 'age', owner: colony.id, age });
+  }
   return true;
 }
 
@@ -184,5 +205,6 @@ export function defaultMods(): Mods {
     gold: 1,
     science: 1,
     buildTime: 1,
+    growth: 1,
   };
 }

@@ -18,7 +18,7 @@
   {"tier":1,"effects":[],"id":"artworks","age":3,"kind":"building","name":"Artillery","text":"Unlocks the Artillery Works: guns that outrange every tower and shell only towers.","unlock":"artworks"},
   {"tier":1,"effects":[],"id":"tankworks","age":4,"kind":"building","name":"Tanks","text":"Unlocks the Tank Factory: armoured tanks shell units and buildings alike, and shrug off small arms.","unlock":"tankworks"},
   {"tier":1,"effects":[],"id":"airfield","age":4,"kind":"building","name":"Air Power","text":"Unlocks the Airfield: bombers fly over walls and water and bomb the buildings deep inside a city. Only anti-air can stop them.","unlock":"airfield"},
-  {"tier":1,"effects":[],"id":"aa","age":4,"kind":"building","name":"Anti-Air","text":"Unlocks the AA Battery: the only tower that can shoot down aircraft, and it does nothing else.","unlock":"aa"},
+  {"tier":1,"effects":[],"id":"aa","age":4,"kind":"building","name":"Anti-Air","text":"The AA Battery: the only tower that can shoot down aircraft. Every colony learns it the moment anyone builds an Airfield.","unlock":"aa","auto":true},
   {"tier":1,"effects":[],"id":"power","age":4,"kind":"building","name":"Electricity","text":"Unlocks the Power Plant: money buildings within 3 squares earn 50% more.","unlock":"power"},
   {"tier":1,"effects":[],"id":"silo","age":4,"kind":"building","name":"Missiles","text":"Unlocks the Missile Silo: every 45 seconds it strikes the enemy's most valuable building, anywhere on the map.","unlock":"silo"},
   {"id":"march","tier":1,"kind":"modifier","name":"Forced March","text":"All units move 10% faster.","effects":[{"mod":"unitSpeed","mul":1.1}],"age":1},

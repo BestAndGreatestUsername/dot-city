@@ -623,6 +623,31 @@ kbd {
   color: var(--gold);
 }
 
+.card-yield {
+  font-family: var(--label);
+  font-size: 10px;
+  color: #3fd0c9;
+}
+
+/* The growth choice: a wide, quieter card under the two discoveries. */
+.btn.card.grow {
+  grid-column: 1 / -1;
+  min-height: 0;
+  border-color: #7be36a;
+}
+
+.btn.card.grow .card-name {
+  color: #7be36a;
+}
+
+.card-cost {
+  margin-top: auto;
+  padding-top: 4px;
+  font-family: var(--label);
+  font-size: 11px;
+  color: var(--gold);
+}
+
 .card-text {
   font-family: 'Pixelify Sans', monospace;
   font-size: 15px;

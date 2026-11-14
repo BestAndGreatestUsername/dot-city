@@ -365,11 +365,11 @@ describe('map generation', () => {
 });
 
 describe('maps', () => {
-  it('every kind of map: all colonies can reach each other on foot, each has a flavour, and landmarks lie about', () => {
+  it('every kind of map: all colonies can reach each other over open land, each has a flavour, and landmarks lie about', () => {
     for (const type of ['continent', 'highlands', 'rivers', 'lakes', 'endless'] as const) {
-      for (const seed of [4, 9]) {
+      for (const seed of [4, 9, 21, 33, 58]) {
         const s = createGame({ seed, model: 'local', colonies: 6, tuning, mapType: type });
-        // Walk from the first tower over everything but water.
+        // Walk from the first tower over open land only: no mountains, no water.
         const seen = new Uint8Array(s.kind.length);
         const stack = [s.colonies[0].tower];
         seen[stack[0]] = 1;
@@ -377,7 +377,7 @@ describe('maps', () => {
           const c = stack.pop() as number;
           for (let d = 0; d < 4; d++) {
             const n = neighbour(s, c, d);
-            if (n < 0 || seen[n] || s.terrain[n] === Terrain.Water) continue;
+            if (n < 0 || seen[n] || s.terrain[n] === Terrain.Water || s.terrain[n] === Terrain.Mountain) continue;
             seen[n] = 1;
             stack.push(n);
           }

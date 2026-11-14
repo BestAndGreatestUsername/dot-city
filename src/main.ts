@@ -268,7 +268,10 @@ function playEvents(): void {
         sound.play('coin', e.owner === PLAYER ? 1 : 0.5, { x: e.x, y: e.y }, ear);
         break;
       case 'age':
-        sound.play('age');
+        if (e.owner === PLAYER) sound.play('age');
+        break;
+      case 'airborne':
+        sound.play('warn');
         break;
       case 'landmark':
         if (e.owner === PLAYER) sound.play(e.feature === 1 ? 'ruins' : 'treasure');
@@ -287,7 +290,7 @@ function playEvents(): void {
 
 /** The soundtrack follows the age, turns tense while anyone is attacking the player, and quietens when paused. */
 function updateMusic(): void {
-  sound.music.setAge(state.age);
+  sound.music.setAge(me().age);
   const threatened = state.colonies.some((c) => c.alive && c.order === PLAYER);
   sound.music.setTension(threatened ? 1 : 0);
   sound.music.setPaused(settings.paused);
@@ -497,9 +500,19 @@ function noteEvents(): void {
   for (const e of events) {
     // The player's tower is being hit: flash the screen, and say so (not every hit).
     if (e.type === 'age') {
-      showToast(`THE ${tuning.ages[e.age - 1].name.toUpperCase()} AGE BEGINS! A BREAKTHROUGH AWAITS`);
-      // The breakthrough is a free discovery: open it at once, like any other.
-      announcedDraws = Math.min(announcedDraws, me().drawsEarned - 1);
+      const ageName = tuning.ages[e.age - 1].name.toUpperCase();
+      if (e.owner === PLAYER) {
+        showToast(`YOU ENTER THE ${ageName} AGE! A BREAKTHROUGH AWAITS`);
+        // The breakthrough is a free discovery: open it at once, like any other.
+        announcedDraws = Math.min(announcedDraws, me().drawsEarned - 1);
+      } else {
+        showToast(`${colonyName(e.owner).toUpperCase()} ENTERS THE ${ageName} AGE`);
+      }
+      continue;
+    }
+    if (e.type === 'airborne') {
+      const who = e.owner === PLAYER ? 'YOU HAVE' : `${colonyName(e.owner).toUpperCase()} HAS`;
+      showToast(`${who} AIRCRAFT! EVERY COLONY CAN NOW BUILD ANTI-AIR`, e.owner !== PLAYER);
       continue;
     }
     if (e.type === 'landmark') {
@@ -810,6 +823,46 @@ function setMenuOpen(open: boolean): void {
 }
 
 /** Facts about a building for the hotbar's info card: what it costs, how tough it is, what it does. */
+/**
+ * What a money or science building earns, in plain numbers a minute: its base, and what each
+ * neighbour adds. Empty for anything that earns nothing.
+ */
+function yieldsOf(kind: number): string[] {
+  const e = tuning.economy;
+  const spec = unlockTuning(tuning, kind);
+  const m = me().mods;
+  const g = (v: number) => (v * 60 * m.gold).toFixed(v * 60 * m.gold < 10 ? 1 : 0);
+  const sc = (v: number) => (v * 60 * m.science).toFixed(v * 60 * m.science < 10 ? 1 : 0);
+  switch (kind) {
+    case Kind.Farm:
+      return [`+${g(e.farmGoldPerSecond)} GOLD/MIN`, `+${g(e.farmNeighbourBonus)}/MIN PER TOUCHING FARM`];
+    case Kind.Research:
+      return [`+${sc(e.researchSciencePerSecond)} SCIENCE/MIN`];
+    case Kind.Mine:
+      return [`+${g(spec?.gold ?? 0)} GOLD/MIN`, `+${g(spec?.per ?? 0)}/MIN PER MOUNTAIN AROUND`];
+    case Kind.Fishery:
+      return [`+${g(spec?.gold ?? 0)} GOLD/MIN`, `+${g(spec?.per ?? 0)}/MIN PER WATER SQUARE AROUND`];
+    case Kind.Market:
+      return [`+${g(spec?.per ?? 0)} GOLD/MIN PER HOUSE WITHIN ${spec?.radius}`];
+    case Kind.Bank:
+      return [`${((spec?.rate ?? 0) * 100).toFixed(1)}% OF SAVED GOLD EACH SECOND`, `UP TO ${g(spec?.cap ?? 0)} GOLD/MIN`];
+    case Kind.Library:
+      return [`+${sc(spec?.science ?? 0)} SCIENCE/MIN`, `+${sc(spec?.per ?? 0)}/MIN PER SCIENCE BUILDING TOUCHING`];
+    case Kind.Observatory:
+      return [`+${sc(spec?.science ?? 0)} SCIENCE/MIN`, `+${sc(spec?.per ?? 0)}/MIN PER MOUNTAIN AROUND`];
+    case Kind.Academy:
+      return [`+${sc(spec?.science ?? 0)} SCIENCE/MIN`];
+    case Kind.PrintingPress:
+      return [`DISCOVERIES ${Math.round((spec?.discount ?? 0) * 100)}% CHEAPER EACH`];
+    case Kind.PowerPlant:
+      return [`MONEY BUILDINGS +${Math.round((spec?.boost ?? 0) * 100)}% WITHIN ${spec?.radius}`];
+    case Kind.Plaza:
+      return [`CITY GROWS x${spec?.boost} WITHIN ${spec?.radius}`];
+    default:
+      return [];
+  }
+}
+
 function statsFor(kind: number): string[] {
   const colony = me();
   const out: string[] = [];
@@ -832,6 +885,7 @@ function statsFor(kind: number): string[] {
     out.push(`SPEED ${def.speed}`);
     out.push(`NEW UNIT EVERY ${Math.round(def.spawnSeconds * colony.mods.spawnTime)}S`);
   }
+  out.push(...yieldsOf(kind).filter((line) => kind !== Kind.Plaza && kind !== Kind.PowerPlant || !line.includes("WITHIN")));
   if (kind === Kind.Plaza && spec) out.push(`GROWTH x${spec.boost}`, `REACH ${spec.radius}`);
   if ((kind === Kind.Factory || kind === Kind.PowerPlant) && spec) out.push(`+${Math.round((spec.boost ?? 0) * 100)}%`, `REACH ${spec.radius}`);
   if (kind === Kind.MissileSilo && spec) out.push(`DAMAGE ${spec.damage}`, `EVERY ${spec.cooldownSeconds}S`, 'ANY RANGE');
@@ -937,7 +991,7 @@ function refreshHud(): void {
 
   setText('clock', clock(state.tick));
   updateMusic();
-  setText('age-name', tuning.ages[state.age - 1].name.toUpperCase());
+  setText('age-name', tuning.ages[me().age - 1].name.toUpperCase());
   // A clear PAUSED badge, unless a card on screen already explains the pause.
   const card = ['intro', 'research', 'menu', 'banner'].some((id) => !$(id).classList.contains('hidden'));
   $('paused-badge').classList.toggle('hidden', !settings.paused || card);
@@ -948,7 +1002,7 @@ function refreshHud(): void {
     setText(`legend-war-${i}`, war);
     // Playstyle and discoveries on the second line; hover the row for the full list.
     const style = c.id === PLAYER ? 'YOU' : c.doctrine >= 0 ? doctrineOf(c).name.toUpperCase() : 'RIVAL';
-    setText(`legend-sub-${i}`, c.alive ? `${style} · ${c.picks.length} TECH` : style);
+    setText(`legend-sub-${i}`, c.alive ? `${style} · ${tuning.ages[c.age - 1].name.toUpperCase()}` : style);
     const row = document.getElementById(`legend-row-${i}`);
     if (row) {
       row.classList.toggle('fallen', !c.alive);
@@ -1182,6 +1236,20 @@ function refreshResearch(): void {
       text.className = 'card-text';
       text.textContent = option.text;
       card.append(tag, name, text);
+      if (unlocks) {
+        const price = costOf(state, tuning, PLAYER, unlocks);
+        const cost = document.createElement('span');
+        cost.className = 'card-cost';
+        cost.textContent = price === 0 ? 'FREE TO BUILD' : `COSTS ${price} GOLD EACH`;
+        const earns = yieldsOf(unlocks);
+        if (earns.length > 0) {
+          const yields = document.createElement('span');
+          yields.className = 'card-yield';
+          yields.textContent = earns.join(' · ');
+          card.append(yields);
+        }
+        card.append(cost);
+      }
       card.addEventListener('click', () => {
         applyCommand(state, tuning, { type: 'research', owner: PLAYER, choice: index }, events);
         showToast(`DISCOVERED: ${option.name.toUpperCase()}`);
@@ -1197,6 +1265,30 @@ function refreshResearch(): void {
       });
       researchCards.append(card);
     });
+    // Or no discovery at all: a faster-growing city. It does not bring the next age closer.
+    const offerCount = (colony.offer as string[]).length;
+    const grow = document.createElement('button');
+    grow.className = 'btn card grow';
+    const growName = document.createElement('span');
+    growName.className = 'card-name';
+    growName.textContent = `OR: +${Math.round(tuning.research.growthChoice * 100)}% CITY GROWTH`;
+    const growText = document.createElement('span');
+    growText.className = 'card-text';
+    growText.textContent = `Skip the discovery: your city grows ${Math.round(tuning.research.growthChoice * 100)}% faster from now on (now ${Math.round((colony.mods.growth - 1) * 100)}% faster). It does not count towards the next age.`;
+    grow.append(growName, growText);
+    grow.addEventListener('click', () => {
+      applyCommand(state, tuning, { type: 'research', owner: PLAYER, choice: offerCount }, events);
+      showToast(`YOUR CITY NOW GROWS ${Math.round((me().mods.growth - 1) * 100)}% FASTER`);
+      refreshResearch();
+      if (!me().offer) {
+        setResearchOpen(false);
+        if (researchPause) {
+          researchPause = false;
+          setPaused(false);
+        }
+      }
+    });
+    researchCards.append(grow);
     const taken = colony.picks.map((id) => researchOption(id).name).join(', ');
     $('research-taken').textContent = taken ? `Your discoveries: ${taken}.` : 'No discoveries yet.';
   }

@@ -234,7 +234,7 @@ export interface Tuning {
     sprawlPower: number;
   };
   /** The ages: each opens at a time in the game, and research offers only what its age (or an earlier one) knows. */
-  ages: Array<{ name: string; startSeconds: number }>;
+  ages: Array<{ name: string; discoveries: number }>;
   research: {
     /** Science for the first draw. */
     baseCost: number;
@@ -245,6 +245,8 @@ export interface Tuning {
     offerSize: number;
     /** Chance that an option is a rare general modifier instead of a new building. */
     modifierChance: number;
+    /** Instead of a discovery, a colony may take this much more city growth (+0.08 = +8%). */
+    growthChoice: number;
     /** How likely a money or science building is to come up, against 1 for any other building. */
     incomeWeight: number;
     /** The same for the modifiers that raise gold or science, against 1 for other modifiers. */
@@ -310,6 +312,13 @@ export interface Tuning {
     mountainSpeed: number;
     /** How far (in squares) attacking units go out of their way to trample an enemy farm. */
     farmDetour: number;
+    /** On Hold, how far a unit goes to hunt down an intruder on its colony's land. */
+    defendRange: number;
+    /** Seconds a square must go untouched before it starts to mend. */
+    regenDelaySeconds: number;
+    /** Share of full health a building or house mends per second; and the Center Tower. */
+    regenPerSecond: number;
+    towerRegenPerSecond: number;
     /** Share of a fallen colony's gold its attackers plunder. */
     plunderShare: number;
   };
@@ -355,6 +364,10 @@ export interface Tuning {
     levelIncome: number[];
     /** By difficulty: multiplier on how long rivals wait before their first attack. */
     levelAttackDelay: number[];
+    /** No rival attacks before this many seconds (times the difficulty's delay); after that, whenever its army is ready. */
+    graceSeconds: number;
+    /** How long (seconds) a rival remembers who attacked it. */
+    grudgeSeconds: number;
     /** After this many seconds every rival attacks with a smaller share of its full army. */
     lateGameSeconds: number;
     /** A colony with this many attacking towers counts as fortified: rivals answer with siege. */
@@ -392,6 +405,8 @@ export interface Mods {
   science: number;
   /** Time for new buildings to finish. */
   buildTime: number;
+  /** Multiplier on the city's growth (the growth choice on a discovery card adds to it). */
+  growth: number;
 }
 
 /** What a colony is not getting because some of its squares are cut off from the tower (D5). */
@@ -441,6 +456,8 @@ export interface ColonyNav {
   tower: Float32Array | null;
   /** To the nearest poorly defended enemy house (hounds). */
   raid: Float32Array | null;
+  /** To the target's tower for sappers, who can blast through mountains on the way. */
+  rock?: Float32Array | null;
   /** Back to this colony's own barracks and yards (Hold order). */
   home: Float32Array | null;
   /** Tick at which `home` was last rebuilt. */
@@ -474,6 +491,9 @@ export interface Colony {
   launchStrength: number;
   /** What this colony found beside its start: mountains, lake, forest or plains (empty on test boards). */
   flavour: string;
+  /** AI: the colony that last attacked this one, and the tick until which it holds the grudge. */
+  grudge: number;
+  grudgeUntil: number;
   /** AI only: the playstyle this rival follows (an index into DOCTRINES in ai.ts), or -1. */
   doctrine: number;
   mods: Mods;
@@ -483,6 +503,8 @@ export interface Colony {
   drawsEarned: number;
   /** Draws earned but not yet chosen (D17: a choice is banked, never forced). */
   pendingDraws: number;
+  /** This colony's age, 1 (Medieval) to 4 (Modern): reached by the number of its discoveries. */
+  age: number;
   /** A breakthrough is owed: the next offer comes only from the buildings of this age (0 = none). */
   ageOffer: number;
   /** The options currently on offer, or null. */
@@ -551,8 +573,10 @@ export interface GameState {
   aiAttacks: boolean;
   /** Rival difficulty: 0 normal, 1 hard, 2 brutal. Harder rivals earn more and attack sooner. */
   aiLevel: number;
-  /** The current age, 1 (Medieval) to 4 (Modern). Every colony shares it. */
-  age: number;
+  /** Whether anyone has built an Airfield yet (then every colony learns Anti-Air). */
+  airborne: boolean;
+  /** The tick each square was last hit, for regeneration. */
+  lastHit: Int32Array;
   colonies: Colony[];
 }
 
@@ -581,7 +605,11 @@ export type SimEvent =
   /** A city grew onto a landmark: Ancient Ruins (a free discovery) or Treasure (gold). */
   | { type: 'landmark'; cell: number; owner: number; feature: number; gold: number }
   /** A new age began for everyone. */
-  | { type: 'age'; age: number }
+  | { type: 'age'; owner: number; age: number }
+  /** A colony built the first Airfield: everyone learns Anti-Air. */
+  | { type: 'airborne'; owner: number }
+  /** The ground itself changed (a sapper blasted a mountain away). */
+  | { type: 'terrain'; cell: number }
   /** A unit was cut by the Thorn Wall it struck. */
   | { type: 'thorns'; x: number; y: number; owner: number }
   /** A hound looted gold from a house it destroyed. */

@@ -10,7 +10,7 @@ import { Kind, Terrain, TOWER_SIZE, UnitType, type BlastStyle, type Colony, type
 import { COLONY, PAL } from './palette';
 import { buildSprites, silhouette, TILE, type Sprite, type SpriteSet } from './sprites';
 import { buildingYield } from '../sim/economy';
-import { ECONOMY, SCIENCE, unitMaxHp, unitTuning } from '../sim/catalog';
+import { ECONOMY, SCIENCE, unitMaxHp, unitTuning, unlockTuning } from '../sim/catalog';
 import { deltaX, deltaY, step as neighbour } from '../sim/topo';
 
 export interface ViewOptions {
@@ -113,6 +113,7 @@ export class Renderer {
   private seen = new Map<number, Seen>();
   private shakeUntil = 0;
   private shakeSize = 0;
+  private shakeStart = 0;
   private shadows = new WeakMap<Sprite, Sprite>();
   private vignette: HTMLCanvasElement | null = null;
   /** The camera centre in cells, for this frame: things are drawn at their copy nearest to it. */
@@ -406,6 +407,9 @@ export class Renderer {
           this.floaters.push({ x: lx, y: ly - 0.6, text: ruins ? 'DISCOVERY!' : `+${e.gold}`, color: ruins ? PAL.holyLight : PAL.gold, start: now, life: 1600 });
           break;
         }
+        case 'terrain':
+          this.paintTerrain(e.cell);
+          break;
         case 'thorns': {
           // Cut on a Thorn Wall: a spray of red.
           this.burst(e.x, e.y, 4, [PAL.fire, PAL.fireLight, '#b03030'], now, 1.2, 0.5);
@@ -432,7 +436,7 @@ export class Renderer {
           }
           this.effects.push({ kind: 'slash', heavy: e.heavy, start: now, cell: -1, x: e.tx, y: e.ty });
           this.burst(e.tx, e.ty, e.heavy ? 8 : 3, [PAL.paper, PAL.spark], now, e.heavy ? 2.5 : 1.6, 1);
-          if (e.heavy) this.shake(now, 1, 140, e.tx, e.ty);
+
           break;
         }
         case 'defeat':
@@ -885,13 +889,17 @@ export class Renderer {
     const sx = x * TILE * z - this.originX();
     const sy = y * TILE * z - this.originY();
     if (sx < 0 || sy < 0 || sx > this.canvas.width || sy > this.canvas.height) return;
+    this.shakeStart = now;
     this.shakeUntil = Math.max(this.shakeUntil, now + ms);
-    this.shakeSize = Math.max(now < this.shakeUntil - ms ? this.shakeSize : 0, strength * z);
+    // Never more than a few pixels, however close the zoom.
+    this.shakeSize = Math.max(now < this.shakeUntil - ms ? this.shakeSize : 0, Math.min(3, strength * Math.max(1, z * 0.3)));
   }
 
   private shakeOffset(now: number): [number, number] {
     if (now >= this.shakeUntil) return [0, 0];
-    const s = Math.round(this.shakeSize);
+    // Fades out as it ends.
+    const left = (this.shakeUntil - now) / Math.max(1, this.shakeUntil - this.shakeStart);
+    const s = Math.round(this.shakeSize * left);
     return [Math.round((Math.random() * 2 - 1) * s), Math.round((Math.random() * 2 - 1) * s)];
   }
 
@@ -1437,7 +1445,26 @@ export class Renderer {
     const hoverKind = s.kind[view.hover];
     const ringKind = toolActive ? view.toolKind : isTower(hoverKind) ? hoverKind : 0;
     const ringOwner = toolActive ? this.player : s.owner[view.hover];
-    if (ringKind && isTower(ringKind) && ringOwner > 0) {
+    // Buildings that reach a square area around them (Factory, Power Plant, Plaza): outline it.
+    const areaKind = toolActive ? view.toolKind : hoverKind;
+    const area = areaKind === Kind.Factory || areaKind === Kind.PowerPlant || areaKind === Kind.Plaza ? unlockTuning(this.tuning, areaKind)?.radius ?? 0 : 0;
+    if (area > 0 && (toolActive || s.owner[view.hover] > 0)) {
+      const left = x - area * size;
+      const top = y - area * size;
+      const span = (area * 2 + 1) * size;
+      const line = Math.max(1, Math.floor(z / 2));
+      g.globalAlpha = 0.8;
+      g.fillStyle = areaKind === Kind.Plaza ? PAL.good : PAL.gold;
+      for (let i = 0; i < span; i += 3 * line) {
+        g.fillRect(left + i, top, line * 2, line);
+        g.fillRect(left + i, top + span - line, line * 2, line);
+        g.fillRect(left, top + i, line, line * 2);
+        g.fillRect(left + span - line, top + i, line, line * 2);
+      }
+      g.globalAlpha = 0.12;
+      g.fillRect(left, top, span, span);
+      g.globalAlpha = 1;
+    } else if (ringKind && isTower(ringKind) && ringOwner > 0) {
       const range = towerRange(this.tuning, s.colonies[ringOwner - 1], ringKind);
       this.ring(x + size / 2, y + size / 2, range * size, z, ringKind === Kind.Bell || ringKind === Kind.Shrine ? PAL.holyLight : PAL.paper, 0.75);
     }

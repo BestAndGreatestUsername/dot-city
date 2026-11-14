@@ -127,7 +127,8 @@ describe('earning draws', () => {
     expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: 0 }, [])).toBe(false);
     s.colonies[0].science = 50;
     run(s, 1);
-    expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: 2 }, [])).toBe(false);
+    // (Choice 2, just past the two options, is the growth choice: 3 is nothing.)
+    expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: 3 }, [])).toBe(false);
     expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: -1 }, [])).toBe(false);
   });
 });
@@ -180,23 +181,58 @@ describe('what a draw offers', () => {
     const seen = new Set<string>();
     for (let i = 0; i < 3000; i++) for (const id of rollOffer(s, calm, colony)) seen.add(id);
     // In the Medieval age: every medieval building, and nothing from a later age.
-    for (const o of RESEARCH) if (o.kind === 'building') expect(seen.has(o.id), o.id).toBe((o.age ?? 1) === 1);
-    // In the Modern age: everything.
-    s.age = 4;
+    for (const o of RESEARCH) if (o.kind === 'building' && !o.auto) expect(seen.has(o.id), o.id).toBe((o.age ?? 1) === 1);
+    // In the Modern age: everything (except Anti-Air, which nobody researches: it comes with the first aircraft).
+    colony.age = 4;
     for (let i = 0; i < 4000; i++) for (const id of rollOffer(s, calm, colony)) seen.add(id);
-    for (const o of RESEARCH) if (o.kind === 'building') expect(seen.has(o.id), o.id).toBe(true);
+    for (const o of RESEARCH) if (o.kind === 'building') expect(seen.has(o.id), o.id).toBe(!o.auto);
   });
 
-  it('a new age brings everyone a breakthrough: a free discovery from that age', () => {
+  it('enough discoveries open the next age, with a breakthrough from that age; each colony at its own pace', () => {
     const s = createGame({ seed: 8, model: 'local', colonies: 4, tuning, bots: [2, 3, 4] });
-    s.tick = calm.ages[1].startSeconds * calm.tickRate;
-    const events: SimEvent[] = [];
-    step(s, tuning, events);
-    expect(events.some((e) => e.type === 'age' && e.age === 2)).toBe(true);
-    expect(s.age).toBe(2);
     const player = s.colonies[0];
+    const events: SimEvent[] = [];
+    // One discovery short of the Gunpowder age, then one more.
+    const medieval = RESEARCH.filter((o) => o.kind === 'building' && (o.age ?? 1) === 1).map((o) => o.id);
+    player.picks.push(...medieval.slice(0, calm.ages[1].discoveries - 1));
+    player.offer = [medieval[calm.ages[1].discoveries - 1]];
+    player.pendingDraws = 1;
+    expect(applyCommand(s, tuning, { type: 'research', owner: 1, choice: 0 }, events)).toBe(true);
+    expect(events.some((e) => e.type === 'age' && e.owner === 1 && e.age === 2)).toBe(true);
+    expect(player.age).toBe(2);
+    expect(s.colonies[1].age).toBe(1); // the others have not got there yet
+    step(s, tuning, events);
     expect(player.offer).not.toBeNull();
     for (const id of player.offer!) expect(researchOption(id).age).toBe(2);
+  });
+
+  it('nobody can build anti-air until someone builds an airfield; then everyone can', () => {
+    const s = createGame({ seed: 8, model: 'local', colonies: 4, tuning, bots: [2, 3, 4] });
+    for (const c of s.colonies) expect(c.unlocked.includes(Kind.AABattery)).toBe(false);
+    s.colonies[2].counts[Kind.Airfield] = 1;
+    const events: SimEvent[] = [];
+    step(s, tuning, events);
+    expect(events.some((e) => e.type === 'airborne' && e.owner === 3)).toBe(true);
+    for (const c of s.colonies) expect(c.unlocked.includes(Kind.AABattery)).toBe(true);
+  });
+
+  it('untouched squares and towers mend themselves; ones under attack do not', () => {
+    const s = createGame({ seed: 8, model: 'local', colonies: 4, tuning });
+    for (let i = 0; i < 600; i++) step(s, tuning, []);
+    const colony = s.colonies[0];
+    let house = -1;
+    for (let c = 0; c < s.kind.length && house < 0; c++) if (s.owner[c] === 1 && s.kind[c] === Kind.House) house = c;
+    s.hp[house] = 5;
+    s.lastHit[house] = s.tick;
+    colony.towerHp = 800;
+    for (const c of colony.towerCells) s.lastHit[c] = s.tick;
+    // Not yet: they were just hit.
+    for (let i = 0; i < Math.round(calm.combat.regenDelaySeconds * calm.tickRate) - 5; i++) step(s, tuning, []);
+    expect(s.hp[house]).toBe(5);
+    // A few seconds later they mend.
+    for (let i = 0; i < 60; i++) step(s, tuning, []);
+    expect(s.hp[house]).toBeGreaterThan(5);
+    expect(colony.towerHp).toBeGreaterThan(800);
   });
 
   it('can still gate options by picks taken, if tiers are switched on in the tuning', () => {

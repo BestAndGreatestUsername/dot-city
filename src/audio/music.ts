@@ -1,14 +1,15 @@
 // The soundtrack: a little chiptune band that plays a different piece for each age, and turns
 // tense (louder drums, a driving low pulse) while the player is under attack.
 //
-//   Medieval    D dorian, 84 bpm: a flute-like tune over a drone, plucked strings, a frame drum.
-//               Old and a little magical.
-//   Gunpowder   G major, 100 bpm: a fife march with snare rolls.
-//   Industrial  A minor, 112 bpm: a pulse lead over pumping bass, rock drums.
-//   Modern      E minor, 124 bpm: a synth lead, fast arpeggios, a four-on-the-floor beat.
+// Every piece is a 16-bar song: an 8-bar verse and an 8-bar chorus. The tune is built from a
+// one-bar hook that repeats and answers itself (that is what makes a melody stick), and the
+// chorus lifts it higher with a harmony line, fast arpeggios and bigger drums.
 //
-// Each piece is composed once, from a fixed seed: an 8-bar loop of chords, bass, arpeggio and
-// a melody whose phrases repeat and answer each other, so it sounds written rather than random.
+//   Medieval    D dorian, 116 bpm: folk-rock. Flute-like lead over a drone, galloping bass,
+//               frame drum and tambourine. Old, a little magical, and it moves.
+//   Gunpowder   G major, 124 bpm: a fife-and-drum march with snare rolls.
+//   Industrial  A minor, 130 bpm: a pulse lead over pumping bass and rock drums.
+//   Modern      E minor, 138 bpm: a synth lead, racing arpeggios, four-on-the-floor.
 
 interface Style {
   bpm: number;
@@ -16,23 +17,26 @@ interface Style {
   root: number;
   /** The scale, in semitones above the root. */
   scale: number[];
-  /** The chords, as scale degrees, one per bar (4 bars, played twice). */
-  progression: number[];
+  /** Chords for the verse and the chorus, as scale degrees, one per bar (4 bars, played twice). */
+  verse: number[];
+  chorus: number[];
   lead: OscillatorType;
   leadVol: number;
   /** A held drone on the root and fifth (medieval). */
   drone: boolean;
-  /** How busy the arpeggio is: notes per beat (0 = none). */
-  arpRate: number;
   arpWave: OscillatorType;
-  drums: 'frame' | 'march' | 'rock' | 'synth';
+  /** Bass pattern: 'gallop' (da-da-dum), 'pump' (straight eighths) or 'octave' (root and octave). */
+  bass: 'gallop' | 'pump' | 'octave';
+  drums: 'folk' | 'march' | 'rock' | 'synth';
+  /** Seed for composing this piece. */
+  seed: number;
 }
 
 const STYLES: Style[] = [
-  { bpm: 84, root: 62, scale: [0, 2, 3, 5, 7, 9, 10], progression: [0, 6, 3, 4], lead: 'triangle', leadVol: 0.16, drone: true, arpRate: 2, arpWave: 'square', drums: 'frame' },
-  { bpm: 100, root: 67, scale: [0, 2, 4, 5, 7, 9, 11], progression: [0, 3, 4, 0], lead: 'square', leadVol: 0.07, drone: false, arpRate: 2, arpWave: 'triangle', drums: 'march' },
-  { bpm: 112, root: 69, scale: [0, 2, 3, 5, 7, 8, 10], progression: [0, 5, 2, 6], lead: 'square', leadVol: 0.06, drone: false, arpRate: 2, arpWave: 'square', drums: 'rock' },
-  { bpm: 124, root: 64, scale: [0, 2, 3, 5, 7, 8, 10], progression: [0, 5, 3, 4], lead: 'sawtooth', leadVol: 0.05, drone: false, arpRate: 4, arpWave: 'square', drums: 'synth' },
+  { bpm: 116, root: 62, scale: [0, 2, 3, 5, 7, 9, 10], verse: [0, 6, 3, 4], chorus: [3, 0, 6, 4], lead: 'triangle', leadVol: 0.2, drone: true, arpWave: 'square', bass: 'gallop', drums: 'folk', seed: 7 },
+  { bpm: 124, root: 67, scale: [0, 2, 4, 5, 7, 9, 11], verse: [0, 3, 4, 0], chorus: [5, 3, 0, 4], lead: 'square', leadVol: 0.075, drone: false, arpWave: 'triangle', bass: 'octave', drums: 'march', seed: 23 },
+  { bpm: 130, root: 69, scale: [0, 2, 3, 5, 7, 8, 10], verse: [0, 5, 2, 6], chorus: [5, 6, 0, 4], lead: 'square', leadVol: 0.07, drone: false, arpWave: 'square', bass: 'pump', drums: 'rock', seed: 41 },
+  { bpm: 138, root: 64, scale: [0, 2, 3, 5, 7, 8, 10], verse: [0, 5, 3, 4], chorus: [5, 3, 0, 6], lead: 'sawtooth', leadVol: 0.055, drone: false, arpWave: 'square', bass: 'octave', drums: 'synth', seed: 59 },
 ];
 
 function midiToFreq(m: number): number {
@@ -51,46 +55,61 @@ function rng(seed: number): () => number {
   };
 }
 
-/** A melody note: scale step (relative to the root, may be negative or past an octave), or null for a rest. */
+/** One note per eighth: a scale step (from the root), or null for a rest. 8 a bar, 16 bars. */
 type Melody = Array<number | null>;
 
 /**
- * Compose 8 bars of melody, 8 eighth-notes a bar: phrase A (bars 1-2), its answer B (3-4),
- * A again (5-6), and a closing phrase C (7-8) that comes home to the root.
+ * A one-bar hook: which eighths sound, and how the tune moves between them. Strong beats
+ * always sound; the rest follow a catchy rhythm.
  */
-function compose(style: Style, seed: number): Melody {
-  const rand = rng(seed);
-  const phrase = (bars: number[], end: number | null): Melody => {
-    const out: Melody = [];
-    let step = style.progression[bars[0]] + (rand() < 0.5 ? 2 : 4);
-    for (let b = 0; b < bars.length; b++) {
-      const chord = style.progression[bars[b]];
-      for (let i = 0; i < 8; i++) {
-        // Strong beats land on a chord tone; in between the tune walks by step, or rests.
-        if (i % 4 === 0) {
-          const tones = [chord, chord + 2, chord + 4];
-          let best = tones[0];
-          for (const tone of tones) if (Math.abs(tone - step) < Math.abs(best - step)) best = tone;
-          step = best;
-          out.push(step);
-        } else if (rand() < 0.22) {
-          out.push(null);
-        } else {
-          step += rand() < 0.5 ? -1 : 1;
-          if (rand() < 0.15) step += rand() < 0.5 ? -2 : 2;
-          step = Math.max(-3, Math.min(9, step));
-          out.push(step);
-        }
+function hook(rand: () => number): { hits: boolean[]; moves: number[] } {
+  const rhythms = [
+    [1, 0, 1, 1, 1, 0, 1, 0],
+    [1, 1, 0, 1, 1, 0, 1, 1],
+    [1, 0, 1, 0, 1, 1, 1, 0],
+    [1, 1, 1, 0, 1, 0, 1, 1],
+  ];
+  const hits = rhythms[Math.floor(rand() * rhythms.length)].map((v) => v === 1);
+  const moves: number[] = [];
+  for (let i = 0; i < 8; i++) moves.push(rand() < 0.15 ? 2 * (rand() < 0.5 ? -1 : 1) : rand() < 0.5 ? -1 : 1);
+  return { hits, moves };
+}
+
+/**
+ * Compose the song. Each bar plays the hook, landing on a tone of that bar's chord, so the
+ * same little figure is heard again and again over changing harmony. Every fourth bar answers
+ * with a held note. The chorus uses its own hook, an octave-ish higher.
+ */
+function compose(style: Style): Melody {
+  const rand = rng(style.seed);
+  const verseHook = hook(rand);
+  const chorusHook = hook(rand);
+  const out: Melody = [];
+  for (let bar = 0; bar < 16; bar++) {
+    const chorus = bar >= 8;
+    const chords = chorus ? style.chorus : style.verse;
+    const chord = chords[bar % 4];
+    const { hits, moves } = chorus ? chorusHook : verseHook;
+    // Start on a chord tone near the middle of the range (higher in the chorus).
+    let step = chord + (chorus ? 4 : 2);
+    if (step > 9) step -= 7;
+    const answer = bar % 4 === 3;
+    for (let i = 0; i < 8; i++) {
+      if (answer && i >= 4) {
+        // The answer: a long note home on the chord's root, then a breath.
+        out.push(i === 4 ? chord + (chorus ? 7 : 0) : null);
+        continue;
       }
+      if (!hits[i]) {
+        out.push(null);
+        continue;
+      }
+      if (i > 0) step += moves[i];
+      step = Math.max(-2, Math.min(11, step));
+      out.push(step);
     }
-    if (end !== null) out[out.length - 2] = end;
-    out[out.length - 1] = null;
-    return out;
-  };
-  const a = phrase([0, 1], null);
-  const b = phrase([2, 3], null);
-  const c = phrase([2, 3], 0);
-  return [...a, ...b, ...a, ...c];
+  }
+  return out;
 }
 
 export class Music {
@@ -99,7 +118,7 @@ export class Music {
   private noise: AudioBuffer | null = null;
   private timer = 0;
   private nextTime = 0;
-  /** Sixteenth-note counter. */
+  /** Sixteenth-note counter over the 16-bar song. */
   private step = 0;
   private age = 1;
   /** The age the band is playing now: it switches only at the top of a bar. */
@@ -107,13 +126,20 @@ export class Music {
   private tension = 0;
   private volume = 0.5;
   private paused = false;
-  private readonly melodies: Melody[] = STYLES.map((s, i) => compose(s, 1009 + i * 7919));
+  private readonly melodies: Melody[] = STYLES.map((s) => compose(s));
 
   attach(ctx: AudioContext, destination: AudioNode): void {
     this.ctx = ctx;
     this.bus = ctx.createGain();
     this.bus.gain.value = 0;
-    this.bus.connect(destination);
+    // A touch of compression glues the band together and makes it punchier.
+    const glue = ctx.createDynamicsCompressor();
+    glue.threshold.value = -18;
+    glue.ratio.value = 4;
+    glue.attack.value = 0.005;
+    glue.release.value = 0.15;
+    this.bus.connect(glue);
+    glue.connect(destination);
     const length = Math.floor(ctx.sampleRate * 0.5);
     this.noise = ctx.createBuffer(1, length, ctx.sampleRate);
     const data = this.noise.getChannelData(0);
@@ -147,7 +173,7 @@ export class Music {
 
   private applyGain(): void {
     if (!this.ctx || !this.bus) return;
-    const level = this.volume * 0.55 * (this.paused ? 0.45 : 1);
+    const level = this.volume * 0.6 * (this.paused ? 0.45 : 1);
     this.bus.gain.setTargetAtTime(level, this.ctx.currentTime, 0.4);
   }
 
@@ -164,19 +190,25 @@ export class Music {
     // After a long stall (a hidden tab), start again from now rather than catching up.
     if (this.nextTime < ctx.currentTime - 0.5) this.nextTime = ctx.currentTime + 0.05;
     while (this.nextTime < ctx.currentTime + 0.15) {
-      if (this.step % 16 === 0) this.playing = this.age;
+      if (this.step % 16 === 0) {
+        // A new age starts its piece from the top.
+        if (this.playing !== this.age) this.step = 0;
+        this.playing = this.age;
+      }
       const style = STYLES[this.playing - 1];
       this.playStep(style, this.melodies[this.playing - 1], this.step, this.nextTime);
       this.nextTime += 60 / style.bpm / 4;
-      this.step = (this.step + 1) % (16 * 8);
+      this.step = (this.step + 1) % (16 * 16);
     }
   }
 
   private playStep(style: Style, melody: Melody, step: number, t: number): void {
     const sixteenth = 60 / style.bpm / 4;
-    const bar = Math.floor(step / 16) % 8;
+    const bar = Math.floor(step / 16);
     const inBar = step % 16;
-    const chordDegree = style.progression[bar % 4];
+    const chorus = bar >= 8;
+    const chords = chorus ? style.chorus : style.verse;
+    const chordDegree = chords[bar % 4];
     const noteOf = (degree: number, octave = 0) => {
       const n = style.scale.length;
       const wrapped = ((degree % n) + n) % n;
@@ -184,59 +216,84 @@ export class Music {
       return style.root + style.scale[wrapped] + 12 * oct;
     };
     const tense = this.tension > 0.3;
+    // The band plays bigger in the chorus, and when the colony is in danger.
+    const big = chorus || tense;
 
-    // The drone (medieval): root and fifth, renewed every bar.
+    // The drone (medieval): root and fifth under everything.
     if (style.drone && inBar === 0) {
-      this.note(midiToFreq(noteOf(0, -2)), t, sixteenth * 16, 'sawtooth', 0.025, 600);
-      this.note(midiToFreq(noteOf(4, -2)), t, sixteenth * 16, 'sawtooth', 0.02, 600);
+      this.note(midiToFreq(noteOf(0, -2)), t, sixteenth * 16, 'sawtooth', 0.03, 700);
+      this.note(midiToFreq(noteOf(4, -2)), t, sixteenth * 16, 'sawtooth', 0.022, 700);
     }
-    // Bass: the chord's root on the beat (pumping eighths in the later ages, or when tense).
-    const pump = this.playing >= 3 || tense;
-    if (inBar % (pump ? 2 : 8) === 0) {
-      this.note(midiToFreq(noteOf(chordDegree, -2)), t, sixteenth * (pump ? 1.6 : 7), 'triangle', 0.22, 0);
+
+    // Bass.
+    const root = noteOf(chordDegree, -2);
+    if (style.bass === 'gallop') {
+      // Da-da-DUM, da-da-DUM: the gallop of a folk-rock bass.
+      const at = inBar % 4;
+      if (at === 0 || at === 2 || at === 3) this.note(midiToFreq(at === 0 ? root : root + 12 * (at === 3 ? 1 : 0)), t, sixteenth * 0.9, 'triangle', 0.26, 0);
+    } else if (style.bass === 'pump') {
+      if (inBar % 2 === 0) this.note(midiToFreq(root), t, sixteenth * 1.5, 'triangle', 0.26, 0);
+    } else if (inBar % 2 === 0) {
+      this.note(midiToFreq(inBar % 4 === 0 ? root : root + 12), t, sixteenth * 1.5, 'triangle', 0.24, 0);
     }
-    // Arpeggio: the chord's notes, up and down.
-    if (style.arpRate > 0 && inBar % (16 / (style.arpRate * 4)) === 0) {
-      const tones = [0, 2, 4, 2];
-      const k = Math.floor(inBar / (16 / (style.arpRate * 4))) % tones.length;
-      this.note(midiToFreq(noteOf(chordDegree + tones[k], -1)), t, sixteenth * 1.2, style.arpWave, 0.035, 2400);
+
+    // Arpeggio: eighths in the verse, racing sixteenths in the chorus.
+    const every = big ? 1 : 2;
+    if (inBar % every === 0) {
+      const tones = [0, 2, 4, 7, 4, 2];
+      const k = Math.floor(inBar / every) % tones.length;
+      this.note(midiToFreq(noteOf(chordDegree + tones[k], -1)), t, sixteenth * 0.9, style.arpWave, big ? 0.04 : 0.03, 2600);
     }
-    // Melody: eighth notes.
+
+    // Melody, with a harmony a third below in the chorus.
     if (inBar % 2 === 0) {
-      const m = melody[bar * 8 + inBar / 2];
+      const i = bar * 8 + inBar / 2;
+      const m = melody[i];
       if (m !== null && m !== undefined) {
-        const next = melody[bar * 8 + inBar / 2 + 1];
-        const length = next === null ? 3.6 : 1.8;
-        this.note(midiToFreq(noteOf(m)), t, sixteenth * length, style.lead, style.leadVol, style.lead === 'sawtooth' ? 2200 : 0, this.playing === 1 ? 0.02 : 0);
+        const next = melody[i + 1];
+        const length = next === null || next === undefined ? 3.6 : 1.8;
+        const vibrato = this.playing === 1 ? 0.018 : 0;
+        const lowpass = style.lead === 'sawtooth' ? 2600 : 0;
+        this.note(midiToFreq(noteOf(m)), t, sixteenth * length, style.lead, style.leadVol, lowpass, vibrato);
+        if (chorus) this.note(midiToFreq(noteOf(m - 2)), t, sixteenth * length, style.lead, style.leadVol * 0.55, lowpass, vibrato);
       }
     }
-    this.drums(style.drums, inBar, t, tense);
+
+    this.drums(style.drums, inBar, bar, t, big);
   }
 
-  private drums(kit: Style['drums'], i: number, t: number, tense: boolean): void {
+  private drums(kit: Style['drums'], i: number, bar: number, t: number, big: boolean): void {
+    // The last bar of each half rolls into the next: a fill.
+    const fill = (bar === 7 || bar === 15) && i >= 12;
     switch (kit) {
-      case 'frame':
-        // A frame drum on the bar, and a tambourine shake when trouble comes.
-        if (i === 0 || i === 10) this.kick(t, 0.25, 90);
-        if (tense && i % 2 === 0) this.hat(t, 0.02);
+      case 'folk':
+        // A frame drum on the beat, a slap on the backbeat, tambourine on the off-beats.
+        if (i === 0 || i === 6 || i === 8 || (big && i === 14)) this.kick(t, 0.3, 110);
+        if (i === 4 || i === 12) this.snare(t, 0.11, 1400);
+        if (i % 2 === 1 || (big && i % 2 === 0)) this.hat(t, big ? 0.03 : 0.02, 6000);
+        if (fill) this.snare(t, 0.06 + (i - 12) * 0.02, 1600);
         break;
       case 'march':
-        if (i === 0 || i === 8) this.kick(t, 0.3);
-        if (i === 4 || i === 12) this.snare(t, 0.12);
-        // A snare roll into each bar.
-        if (i >= 13 && (tense || i % 2 === 1)) this.snare(t, 0.05);
+        if (i === 0 || i === 8) this.kick(t, 0.32);
+        if (i === 4 || i === 12) this.snare(t, 0.13);
+        if (i >= 13 || (big && i % 2 === 1)) this.snare(t, 0.05);
+        if (fill) this.snare(t, 0.08);
         break;
       case 'rock':
-        if (i === 0 || i === 6 || i === 8) this.kick(t, 0.32);
-        if (i === 4 || i === 12) this.snare(t, 0.14);
-        if (i % 2 === 0 || tense) this.hat(t, 0.025);
+        if (i === 0 || i === 6 || i === 8 || (big && i === 10)) this.kick(t, 0.34);
+        if (i === 4 || i === 12) this.snare(t, 0.15);
+        if (i % 2 === 0 || big) this.hat(t, 0.025);
+        if (fill) this.snare(t, 0.08);
         break;
       case 'synth':
-        if (i % 4 === 0) this.kick(t, 0.34);
-        if (i === 4 || i === 12) this.snare(t, 0.12);
-        if (i % 4 === 2 || (tense && i % 2 === 1)) this.hat(t, 0.035);
+        if (i % 4 === 0) this.kick(t, 0.36);
+        if (i === 4 || i === 12) this.snare(t, 0.13);
+        if (i % 4 === 2 || (big && i % 2 === 1)) this.hat(t, 0.04);
+        if (fill && i % 2 === 0) this.snare(t, 0.09);
         break;
     }
+    // A crash at the top of the chorus.
+    if (bar === 8 && i === 0) this.noiseHit(t, 0.08, 0.9, 'highpass', 5000);
   }
 
   private note(freq: number, t: number, dur: number, wave: OscillatorType, vol: number, lowpass: number, vibrato = 0): void {
@@ -257,7 +314,7 @@ export class Music {
     }
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    env.gain.exponentialRampToValueAtTime(vol, t + 0.01);
     env.gain.setValueAtTime(vol * 0.8, t + dur * 0.6);
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     let out: AudioNode = osc;
@@ -280,14 +337,14 @@ export class Music {
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(from, t);
-    osc.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.13);
     const env = ctx.createGain();
     env.gain.setValueAtTime(vol, t);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
     osc.connect(env);
     env.connect(this.bus as GainNode);
     osc.start(t);
-    osc.stop(t + 0.2);
+    osc.stop(t + 0.22);
     osc.onended = () => env.disconnect();
   }
 
@@ -309,11 +366,13 @@ export class Music {
     src.onended = () => env.disconnect();
   }
 
-  private snare(t: number, vol: number): void {
-    this.noiseHit(t, vol, 0.12, 'bandpass', 1800);
+  private snare(t: number, vol: number, freq = 1800): void {
+    this.noiseHit(t, vol, 0.12, 'bandpass', freq);
+    // A little tone in the snare gives it body.
+    this.kick(t, vol * 0.6, 260);
   }
 
-  private hat(t: number, vol: number): void {
-    this.noiseHit(t, vol, 0.04, 'highpass', 7000);
+  private hat(t: number, vol: number, freq = 7000): void {
+    this.noiseHit(t, vol, 0.04, 'highpass', freq);
   }
 }

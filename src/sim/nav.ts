@@ -9,11 +9,13 @@
 import { isAttacking, isProducer, towerRange } from './catalog';
 import { healthAt, isActive } from './health';
 import { cellAt, step } from './topo';
-import { Kind, Terrain, TOWER_SIZE, type GameState, type Tuning, type UnitTuning } from './types';
+import { Kind, Terrain, TOWER_SIZE, UnitType, type GameState, type Tuning, type UnitTuning } from './types';
 
 /** Could a unit of this colony stand on this cell right now? */
 export function passableFor(s: GameState, c: number, owner: number): boolean {
-  if (s.terrain[c] === Terrain.Water) return false;
+  // Water and stone stop every ground unit. (Aircraft fly over both; sappers blast stone away.)
+  const ground = s.terrain[c];
+  if (ground === Terrain.Water || ground === Terrain.Mountain) return false;
   const o = s.owner[c];
   return o === 0 || o === owner;
 }
@@ -94,6 +96,8 @@ export interface FieldOptions {
   unit: UnitTuning;
   /** Squares of this colony are broken through at normal cost; others cost more. 0 = break nothing. */
   target: number;
+  /** Sappers: mountains are not walls but obstacles they can blast, at this extra time each. */
+  rock?: number;
 }
 
 /**
@@ -117,6 +121,7 @@ export function computeField(s: GameState, t: Tuning, goals: number[], o: FieldO
   const enterCost = (c: number): number => {
     if (isGoal[c]) return 0.01;
     let cost = 1 / (o.unit.speed * terrainSpeed(s, t, c));
+    if (s.terrain[c] === Terrain.Mountain) cost += o.rock ?? 0;
     const owner = s.owner[c];
     if (owner !== 0 && owner !== o.owner) {
       if (o.target === 0) return Infinity;
@@ -139,6 +144,8 @@ export function computeField(s: GameState, t: Tuning, goals: number[], o: FieldO
       const v = step(s, u, dir);
       if (v < 0) continue;
       // Nobody can ever stand in water, so no path may pass through it.
+      // Nobody walks on water; only sappers' fields go through stone.
+      if (s.terrain[v] === Terrain.Mountain && !o.rock) continue;
       if (s.terrain[v] === Terrain.Water) continue;
       if (next < field[v]) {
         field[v] = next;
@@ -219,10 +226,14 @@ export function refreshNav(s: GameState, t: Tuning): void {
     const target = colony.order > 0 ? s.colonies[colony.order - 1] : null;
     if (!target || !target.alive) {
       colony.nav.tower = null;
+      colony.nav.rock = null;
       colony.nav.raid = null;
       continue;
     }
     colony.nav.tower = computeField(s, t, target.towerCells, { owner: colony.id, unit: t.units.shield, target: target.id });
+    // Sappers get a field of their own that runs straight through mountains.
+    const sappers = s.units.some((u) => u.owner === colony.id && u.type === UnitType.Sapper);
+    colony.nav.rock = sappers ? computeField(s, t, target.towerCells, { owner: colony.id, unit: t.units.sapper, target: target.id, rock: 4 }) : null;
     const houses = raidGoals(s, t, target.id);
     colony.nav.raid =
       houses.length > 0 ? computeField(s, t, houses, { owner: colony.id, unit: t.units.hound, target: target.id }) : null;

@@ -62,7 +62,7 @@ export function sprawlFactor(colony: Colony, t: Tuning): number {
 export function growthFactor(colony: Colony, t: Tuning): number {
   const size = colonySize(colony);
   const comeback = size < t.growth.comebackSize ? 1 + t.growth.comebackBonus * (1 - size / t.growth.comebackSize) : 1;
-  return comeback * sprawlFactor(colony, t);
+  return comeback * sprawlFactor(colony, t) * colony.mods.growth;
 }
 
 /**
