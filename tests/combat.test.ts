@@ -553,6 +553,23 @@ describe('stone, hold and grudges', () => {
     expect(Math.hypot(defender.x - 15.5, defender.y - 7.5)).toBeLessThan(start - 2);
   });
 
+  it('on Hold, units also go out to meet enemies closing in, a few squares off their land', () => {
+    const s = arena();
+    for (let x = 4; x < 16; x++) placeHouse(s, x, 8, 1);
+    const defender = spawn(s, 1, UnitType.Warrior, 4.5, 2.5);
+    // Three squares from the nearest house, and nowhere near the defender.
+    const lurker = spawn(s, 2, UnitType.Warrior, 18.5, 5.5);
+    lurker.hp = 1000;
+    s.colonies[0].order = 0;
+    const start = Math.hypot(defender.x - 18.5, defender.y - 5.5);
+    for (let i = 0; i < 40; i++) {
+      step(s, calm, []);
+      lurker.x = 18.5;
+      lurker.y = 5.5;
+    }
+    expect(Math.hypot(defender.x - 18.5, defender.y - 5.5)).toBeLessThan(start - 2);
+  });
+
   it('rivals hit back at whoever is attacking them', () => {
     const s = createGame({ seed: 12, model: 'local', colonies: 5, tuning, bots: [2, 3, 4, 5] });
     const rival = s.colonies[1];

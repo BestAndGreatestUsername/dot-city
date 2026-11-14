@@ -435,23 +435,26 @@ export function stepUnits(s: GameState, t: Tuning, events: SimEvent[]): void {
   const isFree = (c: number, damage: number) => (claims.get(c) ?? 0) < Math.max(1, Math.ceil(healthAt(s, c) / (damage * 5)));
   const claim = (c: number) => claims.set(c, (claims.get(c) ?? 0) + 1);
 
-  // Intruders: enemy ground units standing on or right beside each colony's land. A colony on
-  // Hold sends its units after them, wherever on its land they are.
+  // Intruders: enemy ground units on each colony's land or closing in on it (within
+  // `defendMargin` squares). A colony on Hold sends its units after them.
   const intruders = new Map<number, Unit[]>();
+  const margin = t.combat.defendMargin;
   for (const v of s.units) {
     if (v.hp <= 0 || unitTuning(t, v.type).flies) continue;
-    const here = cellOfPoint(s, v.x, v.y);
-    if (here < 0) continue;
+    const vx = Math.floor(v.x);
+    const vy = Math.floor(v.y);
     let marked = 0;
-    for (let d = -1; d < 4; d++) {
-      const n = d < 0 ? here : neighbour(s, here, d);
-      if (n < 0) continue;
-      const o = s.owner[n];
-      if (o === 0 || o === v.owner || (marked & (1 << o)) !== 0) continue;
-      marked |= 1 << o;
-      const list = intruders.get(o);
-      if (list) list.push(v);
-      else intruders.set(o, [v]);
+    for (let dy = -margin; dy <= margin; dy++) {
+      for (let dx = -margin; dx <= margin; dx++) {
+        const n = cellAt(s, vx + dx, vy + dy);
+        if (n < 0) continue;
+        const o = s.owner[n];
+        if (o === 0 || o === v.owner || (marked & (1 << o)) !== 0) continue;
+        marked |= 1 << o;
+        const list = intruders.get(o);
+        if (list) list.push(v);
+        else intruders.set(o, [v]);
+      }
     }
   }
 

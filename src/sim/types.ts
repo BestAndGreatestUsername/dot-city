@@ -344,6 +344,8 @@ export interface Tuning {
     farmDetour: number;
     /** On Hold, how far a unit goes to hunt down an intruder on its colony's land. */
     defendRange: number;
+    /** On Hold, enemies this many squares from the colony's land already count as intruders. */
+    defendMargin: number;
     /** Seconds a square must go untouched before it starts to mend. */
     regenDelaySeconds: number;
     /** Share of full health a building or house mends per second; and the Center Tower. */

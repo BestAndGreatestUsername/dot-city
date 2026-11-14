@@ -92,7 +92,7 @@
     "breachGroup": 3,
     "thirdPartyPenalty": 3,
     "aggroRange": 3,
-    "holdAggroRange": 6,
+    "holdAggroRange": 8,
     "meleeRange": 0.9,
     "forestSpeed": 0.6,
     "mountainSpeed": 0.4,
@@ -101,7 +101,8 @@
     "regenDelaySeconds": 8,
     "regenPerSecond": 0.05,
     "towerRegenPerSecond": 0.01,
-    "defendRange": 22
+    "defendRange": 32,
+    "defendMargin": 4
   },
   "defence": {
     "crossbow": {

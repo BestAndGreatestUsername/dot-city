@@ -127,7 +127,7 @@ Every army building keeps a fixed number of its units alive, for free. Every uni
 | Thieves' Guild | Assassin | The infiltrator | Enemy towers cannot see it until it is 1.5 squares away: it slips past defences. Fast, deadly up close. | Fragile once spotted. |
 | Helipad | Gunship | The hunter from the sky | Flies over everything and rakes enemy units with fire. | Never touches buildings; only anti-air and Center Towers can hit it. |
 
-- You give one order to the whole colony: **Hold** or **Attack** one rival. On **Hold** your units defend: they gather at their buildings and go out after any enemy on or beside your land, up to 22 squares away.
+- You give one order to the whole colony: **Hold** or **Attack** one rival. On **Hold** your units defend: they gather at their buildings, spot enemies from 8 squares, and go out after any enemy on your land or within 4 squares of it, up to 32 squares from where they stand.
 - Anything left alone for 8 seconds repairs itself: walls, towers and buildings 5% of their health a second, the Center Tower 1%.
 - Enemy squares are solid. Units go around or break through, whichever is quicker.
 - Units steer: they cut corners and move diagonally, turn smoothly, and keep a little room from each other, so a squad moves as a crowd, not a single file.
