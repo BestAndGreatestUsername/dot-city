@@ -480,7 +480,7 @@ describe('the AI researches too (D19)', () => {
   });
 
   it('harder rivals earn more; the player never gets the bonus', () => {
-    for (const level of [0, 1, 2]) {
+    for (const level of [0, 1, 2, 3, 4]) {
       const s = createGame({ seed: 5, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], aiLevel: level });
       expect(s.colonies[0].mods.gold).toBe(1);
       expect(s.colonies[1].mods.gold).toBeCloseTo(tuning.ai.levelIncome[level]);

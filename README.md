@@ -20,13 +20,52 @@ Then open http://localhost:5173.
 
 Other commands: `npm test` (simulation tests), `npm run typecheck`, `npm run build`.
 
+## The title screen
+
+The game opens on a title screen with a live game of six AI rivals fighting it out behind it, the camera drifting from battle to battle. The **DOT CITY** logo builds itself house by house, from the middle outwards, each letter in a different colony's colours, with a Center Tower rising in the O. From there you pick:
+
+- **Game mode** (six cards, below).
+- **Map:** any of nine kinds, or let the seed choose. A live preview shows the map you will play, every colony's start, and yours ringed in white.
+- **Rivals:** 1 to 7.
+- **Level:** Easy, Normal, Hard, Brutal or Nightmare.
+- **Seed:** type one to replay a map, or roll a new one.
+
+**MAIN MENU** in the in-game menu (`M`) and on the end screen takes you back.
+
+## Game modes
+
+| Mode | How to win |
+| --- | --- |
+| **Conquest** | The classic: destroy every rival tower. |
+| **Last Stand** | Every rival hunts you, and only you. Survive 15 minutes. |
+| **Gold Rush** | Be the first to bank 2,500 gold. Rivals race you for it. |
+| **King of the Hill** | A crown sits in the contested heart of the map. Grow onto its square and hold it for 3 minutes in all. Rivals go after whoever holds it. |
+| **Blitz** | Everything faster: double income and science, 50% faster growth, quicker armies and building, 150 extra gold, and rivals attack much sooner. Last tower standing wins. |
+| **Sandbox** | Rivals never attack (unless you turn it on in the menu); you start with 2,000 extra gold and research three times as fast. |
+
+In every mode, taking every rival tower still wins, and losing your own still loses. The top bar shows the mode's goal and the race for it (time left, gold banked and the leader, who holds the crown and for how long).
+
+## Difficulty
+
+| Level | Rivals |
+| --- | --- |
+| Easy | earn 25% less and take their time before attacking |
+| Normal | play fair and wait a little longer before their first attack |
+| Hard (default) | earn 25% more gold and science |
+| Brutal | earn 50% more, start with 40 extra gold and attack sooner |
+| Nightmare | earn double, start with 120 extra gold and strike almost at once |
+
 ## How it plays
 
-- **Five kinds of map** (pick one in the menu, or let the seed choose among the first four):
+- **Nine kinds of map** (pick one on the title screen, or let the seed choose among all but the Endless World):
   - **Continent:** one great landmass in the ocean, with mountain spines across it.
   - **Highlands:** ridges of mountains with valleys and passes between them.
   - **River Lands:** wide rivers cut the land, crossed only at fords.
   - **Lakes:** a land of many lakes.
+  - **Archipelago:** islands in a wide sea, joined by causeways.
+  - **The Crater:** a great ring of mountains around a lake basin, crossed at four passes.
+  - **Badlands:** a maze of rocky ridges. Sappers earn their keep.
+  - **Wildwood:** deep forest everywhere: slow to grow, rich in timber (Lumber Mills love it).
   - **Endless World:** the map loops at its edges, with no corner to hide in.
 - **Every start is different but fair.** Each colony gets the same open ground around its tower, plus one flavour beside it:
   - a mountain range (Mines, Observatories and richer houses);
@@ -37,7 +76,7 @@ Other commands: `npm test` (simulation tests), `npm run typecheck`, `npm run bui
   The menu tells you which you got. Every map is checked so all colonies can reach each other on foot.
 - **Landmarks worth expanding towards:** **Ancient Ruins** give a free discovery, and **Treasure** gives 150 gold, to whichever city grows onto them first. Each colony has ruins at the same distance from its tower, and the richest finds lie in the contested ground between colonies.
 - **Terrain:** forest is slow to grow into (×0.6), but every forest square cleared pays 3 gold of timber. Houses touching a mountain (a quarry) or water (a fishing village) earn 50% more. Water and mountains stop armies on foot: only **Sappers** can blast a way through rock, and **Bombers** fly over both. Every map is checked so each colony can walk to every other over open land; where it could not, a pass is carved through the hills or a causeway across the water.
-- You share the map with **5 rivals** by default (3, 5 or 7 in the menu). The map grows with the number of colonies, from 96x96 squares for four colonies to 112x112 for six and 128x128 for eight, and colonies start spread as far apart as the map allows.
+- You share the map with **5 rivals** by default (1 to 7 on the title screen). The map grows with the number of colonies, from 96x96 squares for four colonies to 112x112 for six and 128x128 for eight, and colonies start spread as far apart as the map allows.
 - Houses spread outward from your 2x2 Center Tower on their own. Each house earns gold; the tower adds a small base income.
 - Growth is deliberately slow, so every house counts. The bigger a city gets, the slower it grows: at 230 squares it grows at half speed, and it crawls past about 400. Cities settle at around 400 to 600 squares, so every square you convert matters.
 - You never place a building. You convert an existing house, permanently, and pay gold for it (farms are free). Every copy of a building costs the same.
@@ -57,7 +96,7 @@ Buildings sit in four tabs: **Economy** (`Z`), **Science** (`X`), **Defence** (`
 - **End screen:** victory or defeat with your time, peak size, discoveries and towers taken, and buttons to replay the map, roll a new one, or (after a defeat) watch the rivals fight on.
 - **Right:** the **minimap** (click or drag it to move the view), your **army** as unit icons with counts, the **order** buttons, and the **colony list**: each colony's playstyle, discoveries, who it is at war with and its size. A rival attacking you is shown in red. Click a colony to look at it.
 - **Incoming attacks:** when an army is marching on you off screen, an arrow at the edge of the view points at it, in the attacker's colour, with its size.
-- **MENU** (`M`): seed, restart, new map, how many rivals (3, 5, 7 or none), difficulty, edge view, controls and the how-to-play card. The game pauses while it is open.
+- **MENU** (`M`): seed, restart, new map, how many rivals (3, 5, 7 or none), difficulty, edge view, controls, the how-to-play card and **MAIN MENU** (back to the title screen). The game pauses while it is open.
 - **Order buttons:** HOLD, then one button per living rival, two to a row.
 
 ### Defence
@@ -181,7 +220,7 @@ Giants now have a thick hide (they take 60% of ordinary damage); ballista bolts 
 ### Research
 
 - Science fills a bar. The first discovery costs 40 science and each one after costs 50% more, so in a game you get a handful of discoveries, not all of them: **every colony specialises** in a few towers and units. (Watching six AI rivals: the first discovery comes around 5 minutes with one research building, and by 15 minutes each has 5 to 8, with an army of two to four unit types.)
-- A discovery pauses the game and offers **two choices**, each showing its price and what it earns (gold or science a minute). Or take neither: **+8% city growth**, for good (it does not count towards the next age). The game resumes once you choose.
+- A discovery pauses the game and offers **two choices**, each showing its price and what it earns (gold or science a minute). Or take neither: **+8% city growth**, for good (it still counts towards the next age, like a discovery). The game resumes once you choose.
 - Almost every choice is a **new building** (53 of them to discover, and only a handful per game, so no two games are alike). About one choice in seven is a **rare modifier**, which always affects everything of a kind: "all units move 10% faster", "all towers reload 15% faster", "all gold income +10%". No modifier ever applies to just one unit or tower type.
 - There are 33 modifiers. The classics: Forced March, Whetstones, Masonry, Trade Routes, Scribes, Architects, Chainmail, Drill Sergeants, Engineering, Clockwork, Roads, Battering Rams, Conscription, Artillery, Citadel and Golden Age. Plus: **Guild Charters** (buildings 15% cheaper), **Rich Soil** (houses earn 25% more), **Masons' Lodge** (repairs twice as fast), **Field Medicine** (units heal 1 health a second), **Boom Town** (city grows 15% faster), **Ballistics**, **Reinforced Concrete**, **Assembly Lines**, **Satellites** (towers +2 range), **Automation** (buildings 25% cheaper and built in half the time), and trade-offs that cut both ways: **Blood Oath** (+25% damage, −10% health), **Phalanx** (+30% health, −10% speed), **Rapid Fire** (reload 25% faster, −10% damage), **Standing Army** (+1 unit per building, raised 10% slower), **Enlightenment** (+30% science, −10% gold), **Mercantilism** (+25% gold, −10% science) and **Total War** (+20% damage, and +20% more to buildings).
 - **It is not a tree.** Any building of your age can turn up; what you take shapes your playstyle. (Tiers still exist in the tuning, `tier2Picks`/`tier3Picks`, but are switched off.)
@@ -207,7 +246,7 @@ Every rival is run by an AI under the same rules and prices as you. Each follows
 - **It hits back.** A rival remembers who attacked it for 3 minutes and usually goes after them, setting out with only half an army if it must. Otherwise it favours the leading colony, close and weakly defended colonies, and colonies whose army is away.
 - It finishes off a tower that is about to fall, falls back when beaten or when home is in danger, and builds new towers on the side the enemy comes from.
 - **Late game:** once its city is fully covered it keeps adding towers in layers (up to a cap), a rich rival buys its strongest unlocked towers and units and keeps more army buildings, it answers a heavily fortified enemy with siege units (catapults, sappers, giants, spearmen, shields), and after 15 minutes it attacks with a smaller share of its full army, so the pressure keeps coming.
-- `LEVEL` sets the difficulty: **Normal** (rivals attack 20% later), **Hard** (the default; rivals earn 25% more) or **Brutal** (they earn 50% more and attack 20% sooner). Changing it restarts the game.
+- `LEVEL` sets the difficulty, from **Easy** to **Nightmare** (see Difficulty above). Changing it in the menu restarts the game.
 - The `AI ATTACKS` button turns the attacks off.
 
 ## Controls

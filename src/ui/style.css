@@ -1173,3 +1173,298 @@ h2 .h2-note {
   background: var(--panel-lo);
   border: 2px solid var(--ink);
 }
+
+/* ---------- title screen ---------- */
+
+/* While the title is up, the game behind it plays itself: no HUD, no cursor tricks. */
+body.on-title #hud {
+  display: none;
+}
+
+body.on-title #view {
+  cursor: default;
+  pointer-events: none;
+}
+
+#title {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  overflow-y: auto;
+}
+
+#title.hidden {
+  display: none;
+}
+
+/* A dark vignette and scanlines over the live game, so the menu reads clearly. */
+.title-shade {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(11, 12, 22, 0.18) 0 2px, transparent 2px 4px),
+    radial-gradient(ellipse at 50% 42%, rgba(11, 12, 22, 0.25) 0%, rgba(11, 12, 22, 0.78) 70%, rgba(11, 12, 22, 0.95) 100%);
+}
+
+.title-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(980px, calc(100vw - 32px));
+  margin: auto;
+  padding: 18px 0 16px;
+}
+
+.title-logo {
+  width: min(620px, 80vw);
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 18px rgba(255, 205, 74, 0.18));
+  animation: logo-float 4s ease-in-out infinite;
+}
+
+@keyframes logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.title-sub {
+  margin: -4px 0 4px;
+  font-family: var(--label);
+  font-size: 15px;
+  letter-spacing: 4px !important;
+  color: var(--gold);
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+.blink {
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.title-modes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.btn.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px 12px;
+  min-height: 104px;
+  text-align: center;
+  transition: transform 0.08s steps(2);
+}
+
+.btn.mode-card canvas {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 var(--ink));
+}
+
+.btn.mode-card b {
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.btn.mode-card span {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.btn.mode-card.on span {
+  color: var(--ink);
+}
+
+.btn.mode-card:hover {
+  transform: translateY(-3px);
+}
+
+.btn.mode-card.on {
+  transform: translateY(-4px);
+}
+
+.title-goal {
+  margin: 0;
+  min-height: 20px;
+  text-align: center;
+  color: var(--paper);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.title-setup.panel {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+}
+
+.setup-map {
+  flex: none;
+}
+
+.map-preview {
+  display: block;
+  width: 140px;
+  height: 140px;
+  image-rendering: pixelated;
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+.setup-opts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-label {
+  width: 64px;
+  font-family: var(--label);
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.setup-value {
+  flex: 1;
+  text-align: center;
+  font-family: var(--label);
+  font-size: 13px;
+  font-weight: 400;
+  padding: 4px 6px;
+  background: var(--panel-lo);
+  border: 3px solid var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Difficulty goes from calm to alarming. */
+#t-level[data-level='0'] {
+  color: #7be36a;
+}
+#t-level[data-level='1'] {
+  color: var(--paper);
+}
+#t-level[data-level='2'] {
+  color: var(--gold);
+}
+#t-level[data-level='3'] {
+  color: #ff9c5a;
+}
+#t-level[data-level='4'] {
+  color: #ff6b6b;
+  animation: blink 0.8s steps(1) infinite;
+}
+
+.btn.arrow {
+  padding: 3px 9px 5px;
+}
+
+.setup-seed {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--label);
+  font-size: 13px;
+  color: var(--paper);
+  background: var(--panel-lo);
+  border: 3px solid var(--ink);
+  padding: 4px 6px;
+  text-transform: uppercase;
+}
+
+.setup-opts .note {
+  margin: 0 0 4px 72px;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.title-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn.big {
+  font-size: 26px;
+  padding: 10px 46px 14px;
+  animation: play-pulse 1.6s steps(2) infinite;
+}
+
+@keyframes play-pulse {
+  50% {
+    box-shadow:
+      inset 0 3px 0 #ffe9a3,
+      inset 0 -4px 0 var(--gold-lo),
+      0 0 0 4px rgba(255, 205, 74, 0.35);
+  }
+}
+
+.title-help.panel {
+  position: relative;
+  width: 100%;
+}
+
+.title-help ol {
+  margin: 0 0 8px;
+  padding-left: 22px;
+}
+
+.title-foot {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dim);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+/* The mode's goal in the top bar. */
+.objective {
+  font-family: var(--label);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--gold);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.objective.alarm {
+  background: #ff6b6b;
+  animation: blink 1s steps(1) infinite;
+}
+
+@media (max-width: 760px) {
+  .title-modes {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .title-setup.panel {
+    flex-direction: column;
+  }
+}

@@ -8,6 +8,36 @@
   <body>
     <canvas id="view"></canvas>
 
+    <div id="title">
+      <div class="title-shade"></div>
+      <div class="title-inner">
+        <canvas id="logo" class="title-logo" aria-label="Dot City"></canvas>
+        <p class="title-sub">A CITY THAT BUILDS ITSELF <span class="blink">&#9608;</span></p>
+        <div class="title-modes" id="title-modes"></div>
+        <p class="title-goal" id="title-goal"></p>
+        <div class="title-setup panel">
+          <div class="setup-map">
+            <canvas id="map-preview" class="map-preview" title="The map you will play: you start at the white square"></canvas>
+          </div>
+          <div class="setup-opts">
+            <div class="setup-row"><span class="setup-label">MAP</span><button class="btn arrow" data-step="map" data-dir="-1">&lt;</button><b id="t-map" class="setup-value"></b><button class="btn arrow" data-step="map" data-dir="1">&gt;</button></div>
+            <p class="note" id="t-map-note"></p>
+            <div class="setup-row"><span class="setup-label">RIVALS</span><button class="btn arrow" data-step="rivals" data-dir="-1">&lt;</button><b id="t-rivals" class="setup-value"></b><button class="btn arrow" data-step="rivals" data-dir="1">&gt;</button></div>
+            <div class="setup-row"><span class="setup-label">LEVEL</span><button class="btn arrow" data-step="level" data-dir="-1">&lt;</button><b id="t-level" class="setup-value"></b><button class="btn arrow" data-step="level" data-dir="1">&gt;</button></div>
+            <p class="note" id="t-level-note"></p>
+            <div class="setup-row"><span class="setup-label">SEED</span><input id="t-seed" class="setup-seed" maxlength="18" spellcheck="false" autocomplete="off" /><button id="t-reroll" class="btn arrow" title="A new random map">NEW</button></div>
+          </div>
+        </div>
+        <div class="title-actions">
+          <button id="btn-play" class="btn on big">PLAY</button>
+          <button id="btn-title-help" class="btn">HOW TO PLAY</button>
+          <button id="btn-title-sound" class="btn">SOUND</button>
+        </div>
+        <div class="title-help panel hidden" id="title-help"></div>
+        <p class="title-foot" id="title-foot"></p>
+      </div>
+    </div>
+
     <div id="hud">
       <div class="panel clock">
         <button id="btn-pause" class="btn" title="Pause or resume (Space)">PAUSE</button>
@@ -16,6 +46,7 @@
         <button class="btn speed" data-speed="3" title="Triple speed (3)">3x</button>
         <span id="age-name" class="age" title="The age: new discoveries open as the ages pass">MEDIEVAL</span>
         <span id="clock">00:00</span>
+        <span id="objective" class="objective hidden"></span>
         <button id="btn-menu" class="btn" title="Map, rivals, difficulty and controls (Esc)">MENU</button>
       </div>
 
@@ -68,7 +99,7 @@
         <h2>RIVALS</h2>
         <div class="row">
           <button id="btn-rivals" class="btn">RIVALS: ON</button>
-          <button id="btn-level" class="btn" title="Rival difficulty. Hard and Brutal rivals earn more and attack sooner. Changing it restarts the game.">LEVEL: HARD</button>
+          <button id="btn-level" class="btn" title="Rival difficulty, from Easy to Nightmare. Harder rivals earn more and attack sooner. Changing it restarts the game.">LEVEL: HARD</button>
         </div>
         <div class="row">
           <button id="btn-attacks" class="btn" title="Whether rival colonies may attack">AI ATTACKS: ON</button>
@@ -89,6 +120,7 @@
         </p>
         <div class="row">
           <button id="btn-help" class="btn">HOW TO PLAY</button>
+          <button id="btn-title" class="btn">MAIN MENU</button>
           <button id="btn-close-menu" class="btn on">BACK TO THE GAME</button>
         </div>
       </div>

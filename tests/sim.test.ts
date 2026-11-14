@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import tuningJson from '../src/data/tuning.json';
 import { costOf, countFarmLinks, farmYieldAt, goldPerSecond } from '../src/sim/economy';
-import { generateMap } from '../src/sim/mapgen';
+import { chooseTarget } from '../src/sim/ai';
+import { generateMap, MAP_TYPES } from '../src/sim/mapgen';
 import { nextInt } from '../src/sim/rng';
 import { applyCommand, step } from '../src/sim/sim';
 import { addColony, colonySize, createEmptyState, createGame, hashState, isSource, refreshAround } from '../src/sim/state';
@@ -364,9 +365,54 @@ describe('map generation', () => {
   });
 });
 
+describe('game modes', () => {
+  it('Gold Rush: the first colony to bank the target wins', () => {
+    const s = createGame({ seed: 4, model: 'local', colonies: 3, tuning, bots: [2, 3], mode: 'goldrush' });
+    s.colonies[2].gold = tuning.modes.goldRushTarget;
+    const events: SimEvent[] = [];
+    step(s, tuning, events);
+    expect(s.winner).toBe(3);
+    expect(events.some((e) => e.type === 'modeWin' && e.owner === 3)).toBe(true);
+  });
+
+  it('King of the Hill: a crown in the contested middle; holding it long enough wins', () => {
+    const s = createGame({ seed: 4, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], mode: 'crown' });
+    expect(s.crown).toBeGreaterThanOrEqual(0);
+    // Far from every tower.
+    for (const c of s.colonies) expect(cellDist(s, s.crown, c.tower)).toBeGreaterThan(8);
+    s.owner[s.crown] = 2;
+    s.kind[s.crown] = Kind.House;
+    const events: SimEvent[] = [];
+    for (let i = 0; i < tuning.modes.crownSeconds * tuning.tickRate + 1 && s.winner === 0; i++) {
+      s.owner[s.crown] = 2;
+      s.kind[s.crown] = Kind.House;
+      step(s, tuning, events);
+    }
+    expect(events.some((e) => e.type === 'crown' && e.owner === 2)).toBe(true);
+    expect(s.winner).toBe(2);
+  });
+
+  it('Last Stand: every rival targets the player; surviving the clock wins', () => {
+    const s = createGame({ seed: 4, model: 'local', colonies: 4, tuning, bots: [2, 3, 4], mode: 'laststand' });
+    for (const id of [2, 3, 4]) expect(chooseTarget(s, tuning, s.colonies[id - 1], 0, 0)).toBe(1);
+    s.tick = tuning.modes.lastStandSeconds * tuning.tickRate;
+    step(s, tuning, []);
+    expect(s.winner).toBe(1);
+  });
+
+  it('Blitz doubles income; Sandbox turns attacks off and fills the treasury', () => {
+    const blitz = createGame({ seed: 4, model: 'local', colonies: 2, tuning, bots: [2], mode: 'blitz' });
+    expect(blitz.colonies[0].mods.gold).toBeCloseTo(tuning.modes.blitzEconomy);
+    const sandbox = createGame({ seed: 4, model: 'local', colonies: 2, tuning, bots: [2], mode: 'sandbox' });
+    expect(sandbox.aiAttacks).toBe(false);
+    expect(sandbox.colonies[0].gold).toBeGreaterThanOrEqual(tuning.modes.sandboxStartGold);
+    expect(sandbox.colonies[1].gold).toBeLessThan(tuning.modes.sandboxStartGold);
+  });
+});
+
 describe('maps', () => {
   it('every kind of map: all colonies can reach each other over open land, each has a flavour, and landmarks lie about', () => {
-    for (const type of ['continent', 'highlands', 'rivers', 'lakes', 'endless'] as const) {
+    for (const type of MAP_TYPES) {
       for (const seed of [4, 9, 21, 33, 58]) {
         const s = createGame({ seed, model: 'local', colonies: 6, tuning, mapType: type });
         // Walk from the first tower over open land only: no mountains, no water.
@@ -448,7 +494,7 @@ describe('the map loops at its edges', () => {
     const six = createGame({ seed: 3, model: 'local', colonies: 6, tuning });
     const eight = createGame({ seed: 3, model: 'local', colonies: 8, tuning });
     expect(four.wrap).toBe(true);
-    for (const type of ['continent', 'highlands', 'rivers', 'lakes'] as const) expect(createGame({ seed: 3, model: 'local', colonies: 4, tuning, mapType: type }).wrap).toBe(false);
+    for (const type of MAP_TYPES.filter((m) => m !== 'endless')) expect(createGame({ seed: 3, model: 'local', colonies: 4, tuning, mapType: type }).wrap).toBe(false);
     expect(four.width).toBe(tuning.map.width);
     expect(six.width).toBeGreaterThan(four.width);
     expect(eight.width).toBeGreaterThan(six.width);

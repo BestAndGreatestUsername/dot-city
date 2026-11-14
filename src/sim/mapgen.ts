@@ -3,6 +3,10 @@
 //   Highlands   ridges of mountains with valleys and passes between them
 //   River Lands wide rivers cut the land, crossed only at fords
 //   Lakes       a land of many lakes
+//   Archipelago islands in a wide sea, joined by causeways
+//   Crater      a great ring of mountains around a lake basin, crossed at four passes
+//   Badlands    a maze of rocky ridges: sappers earn their keep
+//   Wildwood    deep forest everywhere: slow growth, rich timber
 //   Endless     the map loops at its edges
 // Every colony starts with the same amount of open land, but a different flavour beside it
 // (mountains for mines, a lake for fisheries, forest for timber, or open plains), and the map
@@ -12,13 +16,17 @@
 import { hash2, nextFloat, nextInt, type RngHost } from './rng';
 import { Terrain, TOWER_SIZE, type Tuning } from './types';
 
-export const MAP_TYPES = ['continent', 'highlands', 'rivers', 'lakes', 'endless'] as const;
+export const MAP_TYPES = ['continent', 'highlands', 'rivers', 'lakes', 'archipelago', 'crater', 'badlands', 'wildwood', 'endless'] as const;
 export type MapType = (typeof MAP_TYPES)[number];
 export const MAP_NAMES: Record<MapType, string> = {
   continent: 'Continent',
   highlands: 'Highlands',
   rivers: 'River Lands',
   lakes: 'Lakes',
+  archipelago: 'Archipelago',
+  crater: 'The Crater',
+  badlands: 'Badlands',
+  wildwood: 'Wildwood',
   endless: 'Endless World',
 };
 
@@ -40,7 +48,7 @@ export interface GeneratedMap {
 
 /** A map type picked from the seed (Endless is only played when chosen). */
 export function mapTypeFor(seed: number): MapType {
-  return MAP_TYPES[(seed >>> 5) % 4];
+  return MAP_TYPES[(seed >>> 5) % (MAP_TYPES.length - 1)];
 }
 
 function smooth(t: number): number {
@@ -143,6 +151,48 @@ export function generateMap(seed: number, t: Tuning, colonies: number, size = t.
   } else if (type === 'lakes') {
     waterShare = 0.16;
     mountainShare = 0.06;
+  } else if (type === 'archipelago') {
+    // Finer, choppier land: many islands in a wide sea.
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const fine = fbm(seed ^ 0x7a3c91e5, (x * elevCells * 2.2) / w, (y * elevCells * 2.2) / h, 3, 0);
+        elev[y * w + x] = elev[y * w + x] * 0.45 + fine * 0.55;
+      }
+    }
+    waterShare = 0.44;
+    mountainShare = 0.05;
+  } else if (type === 'crater') {
+    // A ring of mountains around the middle, broken by four passes, with a lake in the basin.
+    const turn = hash2(seed, 3, 7) * Math.PI * 2;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (x + 0.5) / w - 0.5;
+        const dy = (y + 0.5) / h - 0.5;
+        const r = Math.hypot(dx, dy);
+        let ring = Math.exp(-(((r - 0.2) / 0.03) ** 2));
+        const a = Math.atan2(dy, dx) - turn;
+        const gap = Math.abs(Math.sin(a * 2));
+        if (gap < 0.22) ring = 0;
+        elev[y * w + x] += 1.3 * ring - 0.9 * Math.exp(-((r / 0.055) ** 2));
+      }
+    }
+    waterShare = 0.05;
+    mountainShare = 0.1;
+  } else if (type === 'badlands') {
+    // Sharp ridges at a finer scale: a maze of rock.
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const fine = fbm(seed ^ 0x3b5d7f11, (x * elevCells * 1.8) / w, (y * elevCells * 1.8) / h, 3, 0);
+        elev[y * w + x] = 1 - Math.abs(fine - 0.5) * 2;
+      }
+    }
+    waterShare = 0.02;
+    mountainShare = 0.3;
+    forestShare = 0.1;
+  } else if (type === 'wildwood') {
+    waterShare = 0.06;
+    mountainShare = 0.05;
+    forestShare = 0.62;
   }
   const waterLevel = quantile(elev, waterShare);
   const mountainLevel = quantile(elev, 1 - mountainShare);

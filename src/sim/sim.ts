@@ -12,6 +12,7 @@ import { applyChoice, rollOffer, stepResearch } from './research';
 import { refreshNav } from './nav';
 import { addPending, ownFarmNeighbours, refreshAround } from './state';
 import { Kind, type Command, type GameState, type SimEvent, type Tuning } from './types';
+import { stepMode } from './modes';
 import { stepDefences } from './towers';
 import { removeDeadUnits, stepProduction, stepUnits } from './units';
 
@@ -118,5 +119,6 @@ export function step(s: GameState, t: Tuning, events: SimEvent[]): void {
   stepUnits(s, t, events);
   stepDefences(s, t, events);
   removeDeadUnits(s, events);
+  stepMode(s, t, events);
   s.tick++;
 }

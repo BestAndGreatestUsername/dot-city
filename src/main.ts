@@ -11,7 +11,9 @@ import { COLONY } from './render/palette';
 import { Renderer } from './render/renderer';
 import { SoundSystem, type Listener } from './audio/audio';
 import { doctrineOf } from './sim/ai';
-import { MAP_NAMES, MAP_TYPES, type MapType } from './sim/mapgen';
+import { MAP_NAMES, MAP_TYPES, mapTypeFor, type MapType } from './sim/mapgen';
+import { crownHolder, MODES, modeInfo, modeLeader, type GameMode } from './sim/modes';
+import { drawMapPreview, iconOf, Logo } from './ui/title';
 import {
   categoryOf,
   isLocked,
@@ -262,6 +264,7 @@ function listener(): Listener {
 
 /** The noises of the world: each event at its own place, quieter the further it is from the view. */
 function playEvents(): void {
+  if (onTitle) return;
   const ear = listener();
   const w = state.width;
   const cellSpot = (c: number) => ({ x: (c % w) + 0.5, y: ((c / w) | 0) + 0.5 });
@@ -349,7 +352,9 @@ const settings = {
   /** Whether rival colonies may attack. Off = they only build and defend. */
   aiAttacks: true,
   /** Rival difficulty: 0 normal, 1 hard, 2 brutal. */
-  level: 1,
+  level: 2,
+  /** The game mode. */
+  mode: 'conquest' as GameMode,
   /** Which kind of map; 'any' picks one from the seed. */
   mapType: 'any' as 'any' | MapType,
   speed: 1,
@@ -386,6 +391,7 @@ function newGame(): void {
     aiAttacks: settings.aiAttacks,
     aiLevel: settings.level,
     mapType: settings.mapType === 'any' ? undefined : settings.mapType,
+    mode: settings.mode,
   });
   samples = state.colonies.map((colony) => [colonySize(colony)]);
   events.length = 0;
@@ -414,7 +420,7 @@ const edgeButton = $<HTMLButtonElement>('btn-edge');
 const rivalsButton = $<HTMLButtonElement>('btn-rivals');
 const attacksButton = $<HTMLButtonElement>('btn-attacks');
 const levelButton = $<HTMLButtonElement>('btn-level');
-const LEVELS = ['NORMAL', 'HARD', 'BRUTAL'];
+const LEVELS = ['EASY', 'NORMAL', 'HARD', 'BRUTAL', 'NIGHTMARE'];
 /** What each start flavour means for the player. */
 const FLAVOUR_TEXT: Record<string, string> = {
   mountains: 'a mountain range (Mines and Observatories, and richer houses on its slopes)',
@@ -498,6 +504,11 @@ toast.addEventListener('click', () => {
   toast.classList.add('hidden');
 });
 
+/** The crown's square, in cells. */
+function crownSpot(): [number, number] {
+  return [(state.crown % state.width) + 0.5, ((state.crown / state.width) | 0) + 0.5];
+}
+
 /** The middle of a colony's tower, in cells. */
 function towerSpot(id: number): [number, number] {
   const c = state.colonies[id - 1];
@@ -517,15 +528,17 @@ function clock(ticks: number): string {
 }
 
 /** The end of a game: the verdict, how it went, and what to do next. */
-function showEnd(won: boolean): void {
+function showEnd(won: boolean, headline?: string, line?: string): void {
   const colony = me();
   sound.play(won ? 'victory' : 'defeat');
   const peak = Math.max(...samples[PLAYER - 1]);
   const stat = (value: string | number, label: string) => `<div><b>${value}</b><span>${label}</span></div>`;
+  const title = headline ?? (won ? 'VICTORY' : 'YOUR TOWER HAS FALLEN');
+  const text = line ?? (won ? 'Every rival tower has fallen. The map is yours.' : 'Your colony is gone. The rivals fight on without you.');
   banner.innerHTML =
-    (won ? '<h1>VICTORY</h1><p>Every rival tower has fallen. The map is yours.</p>' : '<h1>YOUR TOWER HAS FALLEN</h1><p>Your colony is gone. The rivals fight on without you.</p>') +
+    `<h1>${title}</h1><p>${text}</p><p class="note">${modeInfo(tuning, state.mode).name} &middot; ${LEVELS[settings.level]} &middot; ${MAP_NAMES[state.mapType as MapType] ?? ''}</p>` +
     `<div class="end-stats">${stat(clock(state.tick), 'TIME')}${stat(peak, 'PEAK SIZE')}${stat(colony.picks.length, 'DISCOVERIES')}${stat(conquered, 'TOWERS TAKEN')}</div>` +
-    `<div class="row"><button class="btn on" data-act="again">PLAY THIS MAP AGAIN</button><button class="btn" data-act="new">NEW MAP</button>${won ? '' : '<button class="btn" data-act="watch">WATCH</button>'}</div>`;
+    `<div class="row"><button class="btn on" data-act="again">PLAY THIS MAP AGAIN</button><button class="btn" data-act="new">NEW MAP</button><button class="btn" data-act="watch">${won ? 'KEEP PLAYING' : 'WATCH'}</button><button class="btn" data-act="title">MAIN MENU</button></div>`;
   banner.classList.remove('hidden');
 }
 
@@ -534,10 +547,12 @@ banner.addEventListener('click', (e) => {
   if (act === 'again') restart(false);
   else if (act === 'new') restart(true);
   else if (act === 'watch') banner.classList.add('hidden');
+  else if (act === 'title') goToTitle();
 });
 
 /** React to the few simulation events the interface cares about. */
 function noteEvents(): void {
+  if (onTitle) return;
   for (const e of events) {
     // The player's tower is being hit: flash the screen, and say so (not every hit).
     if (e.type === 'age') {
@@ -549,6 +564,17 @@ function noteEvents(): void {
       } else {
         showToast(`${colonyName(e.owner).toUpperCase()} ENTERS THE ${ageName} AGE`);
       }
+      continue;
+    }
+    if (e.type === 'modeWin') {
+      const info = modeInfo(tuning, state.mode);
+      if (e.owner === PLAYER) showEnd(true, 'VICTORY', `${info.name}: you ${e.reason}.`);
+      else showEnd(false, 'DEFEAT', `${info.name}: ${colonyName(e.owner)} ${e.reason}.`);
+      continue;
+    }
+    if (e.type === 'crown') {
+      if (e.owner === PLAYER) showToast('YOU HOLD THE CROWN! KEEP IT', false, crownSpot());
+      else if (e.owner > 0) showToast(`${colonyName(e.owner).toUpperCase()} HOLDS THE CROWN`, true, crownSpot());
       continue;
     }
     if (e.type === 'launch' && e.nuke) {
@@ -825,6 +851,17 @@ function drawMinimap(): void {
     d[c * 4 + 2] = col[2];
     d[c * 4 + 3] = 255;
   }
+  // The crown: a gold cross that blinks.
+  if (state.crown >= 0 && Math.floor(performance.now() / 400) % 2 === 0) {
+    const cx = state.crown % w;
+    const cy = (state.crown / w) | 0;
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const k = (((cy + dy + h) % h) * w + ((cx + dx + w) % w)) * 4;
+      d[k] = 255;
+      d[k + 1] = 215;
+      d[k + 2] = 80;
+    }
+  }
   // Armies: a bright dot per unit, in its colony's light colour.
   for (const u of state.units) {
     const c = Math.floor(u.y) * w + Math.floor(u.x);
@@ -867,9 +904,11 @@ const menu = $<HTMLDivElement>('menu');
 /** True while the game is paused because the menu is open: closing it resumes. */
 let menuPause = false;
 const LEVEL_NOTES = [
+  'Easy: rivals earn 25% less and take their time before attacking. Learn the ropes.',
   'Normal: rivals play fair and wait a little longer before their first attack.',
   'Hard: rivals earn 25% more gold and science.',
-  'Brutal: rivals earn 50% more and attack sooner. Good luck.',
+  'Brutal: rivals earn 50% more, start with extra gold and attack sooner. Good luck.',
+  'Nightmare: rivals earn double, start rich and strike almost at once. You were warned.',
 ];
 
 function setMenuOpen(open: boolean): void {
@@ -1000,7 +1039,30 @@ function syncControls(): void {
   $('btn-maptype').textContent = `MAP: ${settings.mapType === 'any' ? 'ANY' : MAP_NAMES[settings.mapType].toUpperCase()}`;
   const mapName = MAP_NAMES[state.mapType as MapType] ?? 'A custom map';
   setText('map-note', `This game: ${mapName}. You start beside ${FLAVOUR_TEXT[me().flavour] ?? 'open ground'}.`);
-  levelButton.classList.toggle('on', settings.level > 0);
+  levelButton.classList.toggle('on', settings.level >= 2);
+}
+
+/** The mode's goal and the race for it, in the top bar. */
+function refreshObjective(): void {
+  const el = $('objective');
+  const m = tuning.modes;
+  let text = '';
+  const name = (id: number) => (id === PLAYER ? 'YOU' : colonyName(id).toUpperCase());
+  const mmss = (ticks: number) => clock(Math.max(0, ticks));
+  if (state.mode === 'laststand') text = `SURVIVE ${mmss(m.lastStandSeconds * tuning.tickRate - state.tick)}`;
+  else if (state.mode === 'goldrush') {
+    const lead = modeLeader(state);
+    text = `GOLD RUSH ${Math.floor(me().gold)}/${m.goldRushTarget}` + (lead && lead !== PLAYER ? ` · ${name(lead)} ${Math.floor(state.colonies[lead - 1].gold)}` : '');
+  } else if (state.mode === 'crown') {
+    const holder = crownHolder(state);
+    const need = m.crownSeconds * tuning.tickRate;
+    text = holder ? `CROWN: ${name(holder)} ${mmss(state.colonies[holder - 1].crownTicks)}/${mmss(need)}` : 'CROWN: UNCLAIMED';
+    if (holder !== PLAYER && me().crownTicks > 0) text += ` · YOU ${mmss(me().crownTicks)}`;
+  } else if (state.mode === 'blitz') text = 'BLITZ';
+  else if (state.mode === 'sandbox') text = 'SANDBOX';
+  el.classList.toggle('hidden', text === '');
+  el.classList.toggle('alarm', state.mode === 'crown' && crownHolder(state) > 0 && crownHolder(state) !== PLAYER);
+  if (el.textContent !== text) el.textContent = text;
 }
 
 function setText(id: string, value: string | number): void {
@@ -1015,6 +1077,7 @@ function perSecond(value: number): string {
 
 function refreshHud(): void {
   const colony = me();
+  refreshObjective();
 
   setText('res-gold', Math.floor(colony.gold));
   setText('res-gold-rate', perSecond(goldPerSecond(colony, tuning)));
@@ -1228,6 +1291,7 @@ function describe(cell: number): string {
       ? `<span><b>Interior house</b> — no empty neighbour, so it has no growth left to lose.</span>`
       : `<span><b>${who} interior house</b> — it cannot grow any more.</span>`;
   }
+  if (cell === state.crown) return `<span><b>The Crown</b> — grow your city onto this square and hold it for ${Math.round(tuning.modes.crownSeconds / 60)} minutes in all to win. ${crownHolder(state) ? `Held by ${crownHolder(state) === PLAYER ? 'you' : colonyName(crownHolder(state))}.` : 'Nobody holds it yet.'}</span>`;
   if (state.feature[cell] === 1) return '<span><b>Ancient Ruins</b> — grow your city onto this square for a <b>free discovery</b>. First city to reach it wins it.</span>';
   if (state.feature[cell] === 2) return `<span><b>Treasure</b> — grow your city onto this square for <b>+${tuning.map.treasureGold} gold</b>. First city to reach it wins it.</span>`;
   if (kind === Kind.Rubble) return '<span><b>Rubble</b> — nothing can grow here until it clears. Units can cross it.</span>';
@@ -1260,6 +1324,7 @@ function setResearchOpen(open: boolean): void {
  * and the choice opens at once. Returns true if that just happened.
  */
 function checkDiscovery(): boolean {
+  if (onTitle) return false;
   const colony = me();
   if (!colony.alive || !colony.offer || colony.drawsEarned <= announcedDraws) return false;
   announcedDraws = colony.drawsEarned;
@@ -1352,7 +1417,7 @@ function refreshResearch(): void {
     growName.textContent = `OR: +${Math.round(tuning.research.growthChoice * 100)}% CITY GROWTH`;
     const growText = document.createElement('span');
     growText.className = 'card-text';
-    growText.textContent = `Skip the discovery: your city grows ${Math.round(tuning.research.growthChoice * 100)}% faster from now on (now ${Math.round((colony.mods.growth - 1) * 100)}% faster). It does not count towards the next age.`;
+    growText.textContent = `Skip the discovery: your city grows ${Math.round(tuning.research.growthChoice * 100)}% faster from now on (now ${Math.round((colony.mods.growth - 1) * 100)}% faster). It still counts towards the next age.`;
     grow.append(growName, growText);
     grow.addEventListener('click', () => {
       applyCommand(state, tuning, { type: 'research', owner: PLAYER, choice: offerCount }, events);
@@ -1587,7 +1652,7 @@ $('btn-maptype').addEventListener('click', () => {
   restart(false);
 });
 levelButton.addEventListener('click', () => {
-  // Normal, hard, brutal, round again. Rivals' income is set when a game starts, so this restarts.
+  // Easy to nightmare, round again. Rivals' income is set when a game starts, so this restarts.
   settings.level = (settings.level + 1) % LEVELS.length;
   restart(false);
 });
@@ -1610,6 +1675,11 @@ $('btn-help').addEventListener('click', () => {
   menuPause = false;
   menu.classList.add('hidden');
   intro.classList.remove('hidden');
+});
+$('btn-title').addEventListener('click', () => {
+  menuPause = false;
+  menu.classList.add('hidden');
+  goToTitle();
 });
 $('btn-restart').addEventListener('click', () => {
   menuPause = false;
@@ -1637,6 +1707,194 @@ document.querySelectorAll<HTMLButtonElement>('.btn').forEach((b) => b.addEventLi
 document.addEventListener('click', (e) => {
   if ((e.target as HTMLElement).closest('.btn')) sound.play('click');
 });
+
+// ---------- title screen ----------
+
+/** True while the title screen is up: a game of rivals plays itself behind it. */
+let onTitle = false;
+const titleEl = $<HTMLDivElement>('title');
+const logo = new Logo($<HTMLCanvasElement>('logo'), renderer.sprites);
+const titleSeed = $<HTMLInputElement>('t-seed');
+const RIVAL_CHOICES = [1, 2, 3, 4, 5, 6, 7];
+/** The attract mode's camera: where it is drifting to, and when it picks somewhere new. */
+const titleCam = { x: 0, y: 0, next: 0 };
+
+const MODE_ICONS: Record<GameMode, () => HTMLCanvasElement> = {
+  conquest: () => iconOf(renderer.sprites.colonies[0].tower, 2),
+  laststand: () => iconOf(renderer.sprites.colonies[1].buildings[Kind.Bastion]),
+  goldrush: () => iconOf(renderer.sprites.icons.gold),
+  crown: () => iconOf(renderer.sprites.crown),
+  blitz: () => iconOf(renderer.sprites.colonies[2].buildings[Kind.Lightning]),
+  sandbox: () => iconOf(renderer.sprites.colonies[4].buildings[Kind.Plaza]),
+};
+
+function setupTitle(): void {
+  const cards = $('title-modes');
+  for (const mode of MODES) {
+    const info = modeInfo(tuning, mode);
+    const card = document.createElement('button');
+    card.className = 'btn mode-card';
+    card.dataset.mode = mode;
+    const name = document.createElement('b');
+    name.textContent = info.name.toUpperCase();
+    const tag = document.createElement('span');
+    tag.textContent = info.tagline;
+    card.append(MODE_ICONS[mode](), name, tag);
+    card.addEventListener('click', () => {
+      settings.mode = mode;
+      syncTitle(false);
+    });
+    cards.append(card);
+  }
+  titleEl.querySelectorAll<HTMLButtonElement>('[data-step]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const dir = Number(b.dataset.dir);
+      if (b.dataset.step === 'map') {
+        const order: Array<'any' | MapType> = ['any', ...MAP_TYPES];
+        settings.mapType = order[(order.indexOf(settings.mapType) + dir + order.length) % order.length];
+      } else if (b.dataset.step === 'rivals') {
+        const i = RIVAL_CHOICES.indexOf(settings.rivals);
+        settings.rivals = RIVAL_CHOICES[Math.max(0, Math.min(RIVAL_CHOICES.length - 1, (i < 0 ? 4 : i) + dir))];
+      } else if (b.dataset.step === 'level') {
+        settings.level = Math.max(0, Math.min(LEVELS.length - 1, settings.level + dir));
+      }
+      syncTitle(b.dataset.step !== 'level');
+    }),
+  );
+  titleSeed.addEventListener('change', () => {
+    settings.seedName = titleSeed.value.trim().toUpperCase() || randomSeedName();
+    syncTitle(true);
+  });
+  titleSeed.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') titleSeed.blur();
+    e.stopPropagation();
+  });
+  $('t-reroll').addEventListener('click', () => {
+    settings.seedName = randomSeedName();
+    syncTitle(true);
+  });
+  $('btn-play').addEventListener('click', play);
+  $('btn-title-help').addEventListener('click', () => {
+    const help = $('title-help');
+    if (help.innerHTML === '') help.innerHTML = intro.querySelector('ol')?.outerHTML + (intro.querySelector('.note')?.outerHTML ?? '');
+    help.classList.toggle('hidden');
+  });
+  $('btn-title-sound').addEventListener('click', () => {
+    const on = sound.settings.music > 0 || sound.settings.sfx > 0;
+    sound.setVolumes(on ? 0 : 0.5, on ? 0 : 0.7);
+    syncSoundButtons();
+    syncTitle(false);
+  });
+  const tips = [
+    'Tip: every discovery card can be traded for faster growth instead.',
+    'Tip: mountains stop armies on foot. Sappers blast through; aircraft fly over.',
+    'Tip: rivals remember who attacked them, and hit back.',
+    'Tip: walls repair themselves when left alone. Build them thick.',
+    'Tip: you only get a handful of discoveries a game. Specialise.',
+    'Tip: a Hex Tower turns light enemies to your side.',
+    'Tip: farms are free but fragile. Grow them in big blocks.',
+  ];
+  $('title-foot').textContent = tips[Math.floor(Math.random() * tips.length)];
+}
+
+/** Show the title's current choices; redraw the map preview when the map would change. */
+function syncTitle(redrawMap: boolean): void {
+  titleEl.querySelectorAll<HTMLButtonElement>('.mode-card').forEach((c) => c.classList.toggle('on', c.dataset.mode === settings.mode));
+  setText('title-goal', modeInfo(tuning, settings.mode).goal);
+  const seed = hashString(settings.seedName);
+  const type: MapType = settings.mapType === 'any' ? mapTypeFor(seed) : settings.mapType;
+  setText('t-map', settings.mapType === 'any' ? `ANY (${MAP_NAMES[type].toUpperCase()})` : MAP_NAMES[type].toUpperCase());
+  setText('t-rivals', String(settings.rivals));
+  setText('t-level', LEVELS[settings.level]);
+  setText('t-level-note', LEVEL_NOTES[settings.level]);
+  $('t-level').dataset.level = String(settings.level);
+  if (document.activeElement !== titleSeed) titleSeed.value = settings.seedName;
+  const on = sound.settings.music > 0 || sound.settings.sfx > 0;
+  setText('btn-title-sound', on ? 'SOUND: ON' : 'SOUND: OFF');
+  if (redrawMap) {
+    const flavour = drawMapPreview($<HTMLCanvasElement>('map-preview'), tuning, seed, type, 1 + settings.rivals);
+    setText('t-map-note', `You start beside ${FLAVOUR_TEXT[flavour] ?? 'open ground'}.`);
+  }
+}
+
+/** Back to the title: a fresh game of rivals plays itself behind it. */
+function goToTitle(): void {
+  onTitle = true;
+  document.body.classList.add('on-title');
+  titleEl.classList.remove('hidden');
+  banner.classList.add('hidden');
+  intro.classList.add('hidden');
+  setResearchOpen(false);
+  // The attract mode: six AI colonies on a random map, at double speed.
+  state = createGame({
+    seed: (Math.random() * 1e9) | 0,
+    model: settings.model,
+    colonies: 6,
+    tuning,
+    bots: [1, 2, 3, 4, 5, 6],
+    aiLevel: 2,
+    mapType: MAP_TYPES[Math.floor(Math.random() * (MAP_TYPES.length - 1))],
+  });
+  samples = state.colonies.map((colony) => [colonySize(colony)]);
+  events.length = 0;
+  renderer.reset(state, 1);
+  renderer.zoom = Math.max(3, renderer.zoom);
+  // Skip the quiet start: jump in a few minutes, when cities are up and armies about.
+  for (let i = 0; i < 2400; i++) step(state, tuning, events);
+  events.length = 0;
+  renderer.reset(state, 1);
+  titleCam.next = 0;
+  settings.paused = false;
+  settings.speed = 2;
+  logo.restart(performance.now());
+  syncTitle(true);
+}
+
+/** Each frame on the title: build the logo, and drift the camera over the action. */
+function titleFrame(now: number, dt: number): void {
+  logo.draw(now);
+  if (now > titleCam.next) {
+    titleCam.next = now + 9000;
+    // Somewhere worth watching: the middle of a marching army, or else a random city.
+    const marching = state.units.filter((u) => state.colonies[u.owner - 1].order > 0);
+    if (marching.length > 0) {
+      const u = marching[Math.floor(Math.random() * marching.length)];
+      titleCam.x = u.x;
+      titleCam.y = u.y;
+    } else {
+      const alive = state.colonies.filter((c) => c.alive);
+      const c = alive[Math.floor(Math.random() * alive.length)];
+      if (c) [titleCam.x, titleCam.y] = [(c.tower % state.width) + 1, ((c.tower / state.width) | 0) + 1];
+    }
+  }
+  const k = Math.min(1, dt * 0.6);
+  renderer.cx += (titleCam.x * 8 - renderer.cx) * k;
+  renderer.cy += (titleCam.y * 8 - renderer.cy) * k;
+  // A game that ends behind the title simply starts again.
+  if (state.colonies.filter((c) => c.alive).length <= 1) goToTitle();
+}
+
+/** Leave the title and start the chosen game. */
+function play(): void {
+  onTitle = false;
+  document.body.classList.remove('on-title');
+  titleEl.classList.add('hidden');
+  $('title-help').classList.add('hidden');
+  settings.speed = 1;
+  settings.paused = true;
+  newGame();
+  renderer.centerOnTower(me());
+  renderer.zoom = 4;
+  let seen = false;
+  try {
+    seen = localStorage.getItem('dot-city-intro') === '1';
+    localStorage.setItem('dot-city-intro', '1');
+  } catch {
+    // Storage blocked: show the intro every time.
+  }
+  if (seen) setPaused(false);
+  else intro.classList.remove('hidden');
+}
 
 // ---------- main loop ----------
 
@@ -1677,6 +1935,8 @@ function frame(now: number): void {
     if (acc > 5) acc = 0;
   }
 
+  if (onTitle) titleFrame(now, dt);
+
   if (events.length > 0) {
     playEvents();
     noteEvents();
@@ -1700,6 +1960,8 @@ function frame(now: number): void {
 
 buildToolBar();
 newGame();
+setupTitle();
+goToTitle();
 
 // Debug handle for automated checks.
 (window as unknown as Record<string, unknown>).dotCity = {

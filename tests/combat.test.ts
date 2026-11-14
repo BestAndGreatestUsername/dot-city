@@ -588,8 +588,22 @@ describe('stone, hold and grudges', () => {
     colony.pendingDraws = 1;
     expect(applyCommand(s, calm, { type: 'research', owner: 1, choice: 2 }, [])).toBe(true);
     expect(colony.mods.growth).toBeCloseTo(1 + calm.research.growthChoice);
-    expect(colony.picks.length).toBe(0); // not a discovery: no step towards the next age
+    expect(colony.picks.length).toBe(0); // not a discovery...
+    expect(colony.boosts).toBe(1); // ...but a step towards the next age all the same
     expect(colony.offer).toBeNull();
+  });
+
+  it('taking growth instead of discoveries still brings the next age', () => {
+    const s = createGame({ seed: 12, model: 'local', colonies: 2, tuning });
+    const colony = s.colonies[0];
+    const events: SimEvent[] = [];
+    for (let i = 0; i < calm.ages[1].discoveries; i++) {
+      colony.offer = ['ballista', 'flame'];
+      colony.pendingDraws = 1;
+      applyCommand(s, calm, { type: 'research', owner: 1, choice: 2 }, events);
+    }
+    expect(colony.age).toBe(2);
+    expect(events.some((e) => e.type === 'age' && e.owner === 1)).toBe(true);
   });
 });
 

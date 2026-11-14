@@ -4,6 +4,7 @@ import { generateMap, mapSize, mapTypeFor, type MapType } from './mapgen';
 import { step } from './topo';
 import { defaultMods } from './research';
 import { DOCTRINE_COUNT, Kind, KIND_COUNT, Terrain, TOWER_SIZE, type Colony, type GameState, type GrowthModel, type Tuning } from './types';
+import { setupMode, type GameMode } from './modes';
 
 export interface GameOptions {
   seed: number;
@@ -15,8 +16,10 @@ export interface GameOptions {
   bots?: number[];
   /** Set false to keep AI colonies from attacking (they still build and defend). */
   aiAttacks?: boolean;
-  /** Rival difficulty: 0 normal (default), 1 hard, 2 brutal. */
+  /** Rival difficulty: 0 easy, 1 normal (default), 2 hard, 3 brutal, 4 nightmare. */
   aiLevel?: number;
+  /** The game mode (default Conquest). */
+  mode?: GameMode;
   /** Which kind of map: continent, highlands, rivers, lakes or endless (the looping one). By default one of the first four, picked from the seed. */
   mapType?: MapType;
 }
@@ -53,10 +56,14 @@ export function createEmptyState(width: number, height: number, seed: number, mo
     navTick: -1000000,
     bots: [],
     aiAttacks: true,
-    aiLevel: 0,
+    aiLevel: 1,
     airborne: false,
     lastHit: new Int32Array(n).fill(-1000000),
     strikes: [],
+    mode: 'conquest',
+    crown: -1,
+    crownHolder: 0,
+    winner: 0,
     colonies: [],
   };
 }
@@ -92,6 +99,8 @@ export function addColony(s: GameState, towerCell: number, t: Tuning): Colony {
     pendingDraws: 0,
     offer: null,
     ageOffer: 0,
+    boosts: 0,
+    crownTicks: 0,
     age: 1,
     unlocked: [],
     bonusGold: 0,
@@ -132,7 +141,7 @@ export function createGame(o: GameOptions): GameState {
   });
   s.bots = (o.bots ?? []).filter((id) => id >= 1 && id <= s.colonies.length);
   s.aiAttacks = o.aiAttacks ?? true;
-  s.aiLevel = o.aiLevel ?? 0;
+  s.aiLevel = o.aiLevel ?? 1;
   // Each rival follows its own playstyle, all different while there are enough to go round,
   // and harder rivals run a richer economy.
   // (Worked out from the seed, not drawn from the random generator, so adding rivals never
@@ -143,7 +152,9 @@ export function createGame(o: GameOptions): GameState {
     const boost = tuning.ai.levelIncome[s.aiLevel] ?? 1;
     colony.mods.gold *= boost;
     colony.mods.science *= boost;
+    colony.gold += tuning.ai.levelStartGold[s.aiLevel] ?? 0;
   });
+  setupMode(s, tuning, o.mode ?? 'conquest');
   return s;
 }
 

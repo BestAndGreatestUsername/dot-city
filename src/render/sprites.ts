@@ -179,6 +179,8 @@ export interface SpriteSet {
   /** Landmarks: Ancient Ruins and Treasure. */
   ruins: Sprite;
   treasure: Sprite;
+  /** King of the Hill: the crown. */
+  crown: Sprite;
 }
 
 function colonySprites(c: ColonyColors): ColonySprites {
@@ -386,6 +388,7 @@ export function buildSprites(): SpriteSet {
       science: paint(FLASK, { b: PAL.scienceDark, B: PAL.science, L: PAL.scienceLight }),
     },
     ruins: paint(['S.....S.', 'S..S..S.', 'S..S.vS.', 'S.vSvvS.', 'SvvSvvS.', 'SSSSSSSS', 'ssssssss', '........'], { S: PAL.stoneLight, s: PAL.stoneMid, v: PAL.void }),
+    crown: paint(['........', 'G..G..G.', 'GG.GG.GG', 'GGGGGGGG', 'GRGGBGRG', 'GGGGGGGG', 'gggggggg', '........'], { G: PAL.gold, g: PAL.goldDark, R: PAL.bad, B: PAL.iceDark }),
     treasure: paint(['........', '..bbbb..', '.bbbbbb.', 'kGkkkkGk', 'kGkgGkGk', 'kGkkkkGk', 'kkkkkkkk', 'G.g..G.g'], { k: PAL.trunk, b: PAL.fur, g: PAL.goldDark, G: PAL.gold }),
   };
 }

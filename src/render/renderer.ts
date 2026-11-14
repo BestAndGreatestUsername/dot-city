@@ -889,6 +889,21 @@ export class Renderer {
     const g = this.ctx;
     const z = this.zoom;
     const w = s.width;
+    if (s.crown >= 0) {
+      // The crown floats over its square, ringed in the colours of whoever holds it.
+      const cx = this.wx((s.crown % w) + 0.5) * size - ox;
+      const cy = this.wy(((s.crown / w) | 0) + 0.5) * size - oy;
+      const holder = s.owner[s.crown];
+      const ring = holder > 0 ? COLONY[(holder - 1) % COLONY.length].main : PAL.gold;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+      this.ring(cx, cy, size * (1.1 + 0.25 * pulse), z, ring, 0.55 + 0.35 * pulse);
+      this.ring(cx, cy, size * 2.2, z, PAL.gold, 0.18);
+      const bob = Math.round(Math.sin(now / 300) * z);
+      const big = this.sprites.crown.width * z * 1.5;
+      g.fillStyle = 'rgba(18, 19, 31, 0.35)';
+      g.fillRect(Math.round(cx - big * 0.35), Math.round(cy + size * 0.3), Math.round(big * 0.7), z);
+      g.drawImage(this.sprites.crown, Math.round(cx - big / 2), Math.round(cy - size * 0.9 - big / 2 + bob), big, big);
+    }
     for (let c = 0; c < s.feature.length; c++) {
       const f = s.feature[c];
       if (f === 0) continue;

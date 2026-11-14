@@ -232,6 +232,18 @@ export interface UnitTuning {
 
 export interface Tuning {
   tickRate: number;
+  /** Game modes (see modes.ts). */
+  modes: {
+    lastStandSeconds: number;
+    goldRushTarget: number;
+    crownSeconds: number;
+    blitzEconomy: number;
+    blitzGrowth: number;
+    blitzStartGold: number;
+    /** Blitz: share of the usual grace before rivals may attack. */
+    blitzGrace: number;
+    sandboxStartGold: number;
+  };
   map: {
     width: number;
     height: number;
@@ -396,6 +408,8 @@ export interface Tuning {
     levelIncome: number[];
     /** By difficulty: multiplier on how long rivals wait before their first attack. */
     levelAttackDelay: number[];
+    /** Extra gold each rival starts with, by difficulty. */
+    levelStartGold: number[];
     /** No rival attacks before this many seconds (times the difficulty's delay); after that, whenever its army is ready. */
     graceSeconds: number;
     /** How long (seconds) a rival remembers who attacked it. */
@@ -547,6 +561,10 @@ export interface Colony {
   age: number;
   /** A breakthrough is owed: the next offer comes only from the buildings of this age (0 = none). */
   ageOffer: number;
+  /** Times this colony took faster growth instead of a discovery (they count towards the next age too). */
+  boosts: number;
+  /** King of the Hill: ticks this colony has held the crown, in all. */
+  crownTicks: number;
   /** The options currently on offer, or null. */
   offer: string[] | null;
   /** Buildings research has unlocked, by Kind. */
@@ -619,6 +637,13 @@ export interface GameState {
   lastHit: Int32Array;
   /** Missiles and nukes in the air: they land (and do their damage) on tick `land`. */
   strikes: Strike[];
+  /** The game mode (see modes.ts). */
+  mode: 'conquest' | 'laststand' | 'goldrush' | 'crown' | 'blitz' | 'sandbox';
+  /** King of the Hill: the crown's square (-1 in other modes), and who held it last tick. */
+  crown: number;
+  crownHolder: number;
+  /** The colony that met the mode's goal (0 while nobody has). */
+  winner: number;
   colonies: Colony[];
 }
 
@@ -666,6 +691,10 @@ export type SimEvent =
   | { type: 'age'; owner: number; age: number }
   /** A colony built the first Airfield: everyone learns Anti-Air. */
   | { type: 'airborne'; owner: number }
+  /** Someone met the game mode's goal and won. */
+  | { type: 'modeWin'; owner: number; reason: string }
+  /** The crown changed hands (0: nobody holds it). */
+  | { type: 'crown'; owner: number }
   /** A warhead left its silo; it lands `ticks` later at (x, y). */
   | { type: 'launch'; owner: number; victim: number; x: number; y: number; nuke: boolean }
   /** A nuke went off. */

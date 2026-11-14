@@ -351,19 +351,30 @@
     "retreatShare": 0.3,
     "recallThreat": 6,
     "levelIncome": [
+      0.75,
       1,
       1.25,
-      1.5
+      1.5,
+      2
     ],
     "levelAttackDelay": [
+      1.6,
       1.2,
       1,
-      0.8
+      0.8,
+      0.55
     ],
     "lateGameSeconds": 900,
     "fortifiedTowers": 15,
     "graceSeconds": 100,
-    "grudgeSeconds": 180
+    "grudgeSeconds": 180,
+    "levelStartGold": [
+      0,
+      0,
+      0,
+      40,
+      120
+    ]
   },
   "unlockables": {
     "ballista": {
@@ -679,5 +690,15 @@
       "name": "Modern",
       "discoveries": 9
     }
-  ]
+  ],
+  "modes": {
+    "lastStandSeconds": 900,
+    "goldRushTarget": 2500,
+    "crownSeconds": 180,
+    "blitzEconomy": 2,
+    "blitzGrowth": 1.5,
+    "blitzStartGold": 150,
+    "blitzGrace": 0.4,
+    "sandboxStartGold": 2000
+  }
 }

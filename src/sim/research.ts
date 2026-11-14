@@ -134,12 +134,14 @@ export function rollOffer(s: GameState, t: Tuning, colony: Colony): string[] {
 /** Take one option from the current offer. */
 export function applyChoice(s: GameState, t: Tuning, colony: Colony, index: number, events: SimEvent[]): boolean {
   if (!colony.offer || index < 0 || index > colony.offer.length) return false;
-  // The choice after the last option: no discovery, but a faster-growing city instead. It does
-  // not count towards the next age.
+  // The choice after the last option: no discovery, but a faster-growing city instead. It still
+  // counts towards the next age, like a discovery.
   if (index === colony.offer.length) {
     colony.mods.growth += t.research.growthChoice;
+    colony.boosts++;
     colony.pendingDraws--;
     colony.offer = null;
+    advanceAge(t, colony, events);
     return true;
   }
   const option = researchOption(colony.offer[index]);
@@ -163,15 +165,22 @@ export function applyChoice(s: GameState, t: Tuning, colony: Colony, index: numb
   colony.pendingDraws--;
   colony.offer = null;
   events.push({ type: 'research', owner: colony.id, id: option.id });
-  // Enough discoveries open the next age, with a breakthrough: a free discovery from it.
-  const age = ageFor(t, colony.picks.length);
+  advanceAge(t, colony, events);
+  return true;
+}
+
+/**
+ * Enough choices (discoveries, and growth taken instead of one) open the next age, with a
+ * breakthrough: a free discovery from it.
+ */
+function advanceAge(t: Tuning, colony: Colony, events: SimEvent[]): void {
+  const age = ageFor(t, colony.picks.length + colony.boosts);
   if (age > colony.age) {
     colony.age = age;
     colony.pendingDraws++;
     colony.ageOffer = age;
     events.push({ type: 'age', owner: colony.id, age });
   }
-  return true;
 }
 
 /** Bank draws as science passes thresholds, and lay out an offer whenever one is owed. */
